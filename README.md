@@ -10,7 +10,7 @@ A 3d game engine using an ECS
      
  - **Rendering / Graphics**
    - [bgfx](https://github.com/bkaradzic/bgfx): GPU abstraction (Vulkan, DX12, OpenGL, Metal)
-   - [GLFW](https://github.com/glfw/glfw) [website](https://www.glfw.org): window creation & input handling
+   - [GLFW](https://github.com/glfw/glfw) ([website](https://www.glfw.org)): window creation & input handling
    - Shaders: GLSL / HLSL
 
  - **Physics**
