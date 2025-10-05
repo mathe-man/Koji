@@ -14,7 +14,7 @@ A 3d game engine using an ECS
    - Shaders: GLSL / HLSL
 
  - **Physics**
-   - [ReatPhysics3D](https://github.com/DanielChappuis/reactphysics3d)
+   - [ReactPhysics3D](https://github.com/DanielChappuis/reactphysics3d): Rigid bodies, colliders, etc.
 
  - **UI**
    - [ImGui](https://github.com/ocornut/imgui): For debug and tools (not games GUI). Implementation can be foun [here](https://github.com/bkaradzic/bgfx/tree/master/examples/common/imgui)
