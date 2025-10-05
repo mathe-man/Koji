@@ -5,7 +5,7 @@ A 3d game engine using an ECS
 # Tech Stack (Overview)
 > Those aren't definitive choices
 
- - Engine Structure
+ - **Engine Structure**
    - [EnTT](https://github.com/skypjack/entt): Entities, Components, Systems (ECS)
      
  - **Rendering / Graphics**
