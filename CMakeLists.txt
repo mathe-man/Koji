@@ -6,14 +6,31 @@ set(CMAKE_CXX_STANDARD 17)
 set(KOJI_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(KOJI_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Include path
-include_directories(${KOJI_HEADERS_DIR})
+# Add include folders
+include_directories(
+        ${KOJI_HEADERS_DIR}
+        libs/glfw/include
+        libs/bgfx/include
+        libs/entt/include
+)
+
 
 #   Add all files from the source directory
 file(GLOB_RECURSE KOJI_SOURCE_FILES "${KOJI_SOURCE_DIR}/*.cpp")  # .cpp source files
 file(GLOB_RECURSE KOJI_HEADER_FILES "${KOJI_HEADERS_DIR}/*.h")  # .h header files
 
 
+# Create executable using headers and source files
 add_executable(Koji
         ${KOJI_SOURCE_FILES}
         ${KOJI_HEADER_FILES})
+
+
+
+# link GLFW
+target_link_directories(Koji PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw/lib")
+target_link_libraries(Koji glfw3)
+
+# link BGFX
+target_link_directories(Koji PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/libs/bgfx/lib")
+target_link_libraries(Koji bgfx bimg bimg_decode bimg_encode bx)
