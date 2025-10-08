@@ -23,7 +23,9 @@ file(GLOB_RECURSE KOJI_HEADER_FILES "${KOJI_HEADERS_DIR}/*.h")  # .h header file
 # Create executable using headers and source files
 add_executable(Koji
         ${KOJI_SOURCE_FILES}
-        ${KOJI_HEADER_FILES})
+        ${KOJI_HEADER_FILES}
+        src/Core/Application.cpp
+        include/Koji/Core/Application.h)
 
 
 
