@@ -6,6 +6,7 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 
 #include "Koji/Core/Application.h"
+#include "Koji/Core/Time.h"
 
 
 // define the screen size to 1920*1080 (HD) or 1280*720
@@ -18,6 +19,9 @@
 #endif
 
 int main(){
+    Koji::ScopeTimer t = Koji::ScopeTimer([](double seconds) {
+        std::cout << "Scope timer ended after " << seconds << "s\n";
+    });
 
     auto app = Koji::Application("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT, bgfx::RendererType::Vulkan);
     return app.Run();

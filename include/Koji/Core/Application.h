@@ -15,4 +15,4 @@ namespace Koji {
         bgfx::RendererType::Enum render_type;
     };
 
-}
+} // Koji
