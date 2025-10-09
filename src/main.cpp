@@ -7,6 +7,7 @@
 
 #include "Koji/Core/Application.h"
 #include "Koji/Core/Time.h"
+using namespace Koji;
 
 
 // define the screen size to 1920*1080 (HD) or 1280*720
@@ -19,10 +20,16 @@
 #endif
 
 int main(){
-    Koji::ScopeTimer t = Koji::ScopeTimer([](double seconds) {
+    ScopeTimer t = ScopeTimer([](double seconds) {
         std::cout << "Scope timer ended after " << seconds << "s\n";
     });
 
-    auto app = Koji::Application("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT, bgfx::RendererType::Vulkan);
+    auto app = Application("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT, bgfx::RendererType::Vulkan);
+
+    DelayTimer timer(2500, [] {
+        std::cout << "Delay timer finished\n";
+    });
+    timer.Start();
+
     return app.Run();
 }

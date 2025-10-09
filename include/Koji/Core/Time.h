@@ -2,6 +2,7 @@
 #include  <iostream>
 #include <chrono>
 #include <functional>
+#include <thread>
 
 namespace Koji {
     class Time {
@@ -21,6 +22,20 @@ namespace Koji {
         static inline float s_TotalTime = 0.0f;
     };
 
+    class DelayTimer {
+    public:
+        DelayTimer(unsigned int delayMs, std::function<void()> callback)
+            : m_delayMs(delayMs), m_callback(std::move(callback)) {}
+
+        void Start();
+        void Cancel();
+
+    private:
+        unsigned int m_delayMs;
+        std::function<void()> m_callback;
+        bool m_running = false;
+        std::thread m_thread;
+    };
 
     class ScopeTimer {
     public:

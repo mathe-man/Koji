@@ -1,5 +1,5 @@
 #include "../../include/Koji/Core/Time.h"
-using Koji::Time;
+using Koji::Time, Koji::DelayTimer;
 
 void Time::Init() {
     s_StartTime = Clock::now();
@@ -27,3 +27,22 @@ float Time::DeltaTime() {
 float Time::TotalTime() {
     return s_TotalTime;
 }
+
+
+void DelayTimer::Start() {
+
+    if (m_running) return;
+
+    m_running = true;
+    m_thread = std::thread([this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds{m_delayMs});
+        if (m_running && m_callback)
+            m_callback();
+    });
+
+    m_thread.detach(); // No need to join later
+}
+void DelayTimer::Cancel() {
+    m_running = false;
+}
+
