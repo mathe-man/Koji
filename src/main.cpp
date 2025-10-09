@@ -1,6 +1,4 @@
-#include <glfw3.h>
 #include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
 #include <iostream>
 
 #define GLFW_EXPOSE_NATIVE_WIN32

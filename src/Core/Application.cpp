@@ -3,10 +3,10 @@ using Koji::Application;
 
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <glfw3.h>
+#include <glfw/glfw3.h>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
-#include <glfw3native.h>
+#include <glfw/glfw3native.h>
 
 #include <iostream>
 
