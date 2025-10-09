@@ -13,6 +13,7 @@ include_directories(
         libs/glm/include
         libs/bgfx/include
         libs/entt/include
+        libs/ReactPhysics3D/include
 )
 
 
@@ -40,3 +41,7 @@ target_link_libraries(Koji glfw3)
 # link BGFX
 target_link_directories(Koji PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/libs/bgfx/lib")
 target_link_libraries(Koji bgfx bimg bx)
+
+# link ReactPhysics3D
+target_link_directories(Koji PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/libs/ReactPhysics3D/lib")
+target_link_libraries(Koji reactphysics3d)
