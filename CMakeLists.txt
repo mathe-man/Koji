@@ -16,16 +16,19 @@ include_directories(
 
 
 #   Add all files from the source directory
-file(GLOB_RECURSE KOJI_SOURCE_FILES "${KOJI_SOURCE_DIR}/*.cpp")  # .cpp source files
-file(GLOB_RECURSE KOJI_HEADER_FILES "${KOJI_HEADERS_DIR}/*.h")  # .h header files
+# .h and .c files
+file(GLOB_RECURSE KOJI_C_HEADER_FILES "${KOJI_HEADERS_DIR}/*.h")  # .h header files
+file(GLOB_RECURSE KOJI_C_SOURCE_FILES "${KOJI_SOURCE_DIR}/*.c")  # .c source files
+# .hpp and .cpp files
+file(GLOB_RECURSE KOJI_CPP_HEADER_FILES "${KOJI_HEADERS_DIR}/*.hpp")  # .hpp header files
+file(GLOB_RECURSE KOJI_CPP_SOURCE_FILES "${KOJI_SOURCE_DIR}/*.cpp")  # .cpp source files
 
 
 # Create executable using headers and source files
 add_executable(Koji
-        ${KOJI_SOURCE_FILES}
-        ${KOJI_HEADER_FILES}
-        src/Core/Application.cpp
-        include/Koji/Core/Application.h)
+        ${KOJI_C_HEADER_FILES} ${KOJI_C_SOURCE_FILES}
+        ${KOJI_CPP_HEADER_FILES} ${KOJI_CPP_SOURCE_FILES}
+        )
 
 
 
