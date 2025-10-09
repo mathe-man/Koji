@@ -10,6 +10,7 @@ set(KOJI_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(
         ${KOJI_HEADERS_DIR}
         libs/glfw/include
+        libs/glm/include
         libs/bgfx/include
         libs/entt/include
 )

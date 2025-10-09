@@ -1,8 +1,12 @@
-//
-// Created by Mathieu on 09/10/2025.
-//
+#pragma once
+#include <glm/glm.hpp>
 
-#ifndef KOJI_TRANSFORM_H
-#define KOJI_TRANSFORM_H
+namespace Koji {
 
-#endif //KOJI_TRANSFORM_H
+struct Transform {
+    glm::vec3 position;
+    glm::quat rotation;
+    glm::vec3 scale{1.f, 1.f, 1.f};
+};
+
+} // Koji
