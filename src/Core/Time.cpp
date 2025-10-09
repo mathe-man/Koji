@@ -1,5 +1,7 @@
 #include "../../include/Koji/Core/Time.h"
-using Koji::Time, Koji::DelayTimer;
+
+using namespace Koji;
+using namespace std::chrono;
 
 void Time::Init() {
     s_StartTime = Clock::now();
@@ -35,14 +37,35 @@ void DelayTimer::Start() {
 
     m_running = true;
     m_thread = std::thread([this]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds{m_delayMs});
+        std::this_thread::sleep_for(milliseconds{m_delayMs});
         if (m_running && m_callback)
             m_callback();
     });
 
     m_thread.detach(); // No need to join later
 }
-void DelayTimer::Cancel() {
-    m_running = false;
-}
 
+void RepeatedDelayTimer::Start() {
+
+    if (m_running) return;
+
+    m_running = true;
+    m_thread = std::thread([this] {
+        auto nextTick = high_resolution_clock::now();
+
+        while (m_running) {
+            nextTick += milliseconds(m_delayMs);
+
+            // Launch the callback on a separate thread, avoid blocking this timer
+            if (m_running && m_callback)
+                std::thread([cb = m_callback, i = m_iteration++] {
+                    cb(i);
+                }).detach();
+
+            // Sleep until the next scheduled time (even if callback took long)
+            std::this_thread::sleep_until(nextTick);
+        }
+    });
+
+    m_thread.detach(); // No need to join later
+}

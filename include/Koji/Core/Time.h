@@ -3,6 +3,7 @@
 #include <chrono>
 #include <functional>
 #include <thread>
+#include <utility>
 
 namespace Koji {
     class Time {
@@ -24,23 +25,43 @@ namespace Koji {
 
     class DelayTimer {
     public:
+        virtual ~DelayTimer() = default;
+
         DelayTimer(unsigned int delayMs, std::function<void()> callback)
             : m_delayMs(delayMs), m_callback(std::move(callback)) {}
 
-        void Start();
-        void Cancel();
+        virtual void Start();
+        virtual void Cancel() {m_running = false;}
 
-    private:
+    protected:
         unsigned int m_delayMs;
         std::function<void()> m_callback;
         bool m_running = false;
         std::thread m_thread;
     };
 
+    class RepeatedDelayTimer {
+    public:
+    RepeatedDelayTimer(unsigned int delayMs, std::function<void(unsigned int)> callback)
+        : m_delayMs(delayMs), m_callback(std::move(callback)) {}
+
+        void Start();
+        void Cancel() {m_running = false;}
+
+    protected:
+        unsigned int m_iteration;
+
+        unsigned int m_delayMs;
+        std::function<void(unsigned int)> m_callback;
+        bool m_running = false;
+        std::thread m_thread;
+
+    };
+
     class ScopeTimer {
     public:
         ScopeTimer(std::function<void(double)> callback = nullptr)
-            : _callback(callback),
+            : _callback(std::move(callback)),
               start(std::chrono::high_resolution_clock::now()) {}
 
         ~ScopeTimer() {
@@ -50,7 +71,7 @@ namespace Koji {
             if (_callback)
                 _callback(elapsed.count());
         }
-    private:
+    protected:
         std::chrono::high_resolution_clock::time_point start;
         std::function<void(double)> _callback;
     };
