@@ -4,6 +4,7 @@
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>         // add value_ptr()
 #include <glm/gtc/matrix_transform.hpp> // add translate() and scale()
 #include <glm/gtx/quaternion.hpp>       // add mat4_cast()
 
@@ -28,7 +29,7 @@ void RenderingSystem::Render(entt::registry &registry) const {
                         * glm::mat4_cast(transform.rotation)
                         * glm::scale(glm::mat4(1.0f), transform.scale);
 
-        bgfx::setTransform(&model[0][0]);
+        bgfx::setTransform(glm::value_ptr(transform.GetMatrix()));
         bgfx::setVertexBuffer(0, mesh.vbh);
         bgfx::setIndexBuffer(mesh.ibh);
         bgfx::submit(m_renderer->GetViewId(), mesh.program);

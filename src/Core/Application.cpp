@@ -3,6 +3,9 @@
 #include <Koji/Render/Renderer.h>
 #include "Koji/ECS/Systems/RenderingSystem.h"
 #include "entt.hpp"
+#include "Koji/ECS/Components/Transform.h"
+#include "Koji/ECS/Components/Mesh.h"
+#include "Koji/Render/GraphicsResourcesLoader.h"
 
 using Koji::Application;
 
@@ -46,7 +49,19 @@ bool Application::Run() const {
     entt::registry registry;
     RenderingSystem renderingSystem(&renderer);
 
+    auto entity = registry.create();
+    auto mesh = GraphicsResourcesLoader::CreateCube();
 
+    mesh.program = GraphicsResourcesLoader::LoadProgram(
+        "shaders/vs.bin",
+        "shaders/fs.bin");
+
+    registry.emplace<Mesh>(entity, mesh);
+    registry.emplace<Transform>(entity, Transform{
+        {0.0f, 0.0f, 0.0f},
+        glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+        {1.0f, 1.0f, 1.0f}
+    });
 
     // Loop
     while (!glfwWindowShouldClose(window)) {
