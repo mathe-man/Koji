@@ -1,4 +1,9 @@
 #include <Koji/Core/Application.h>
+
+#include <Koji/Render/Renderer.h>
+#include "Koji/ECS/Systems/RenderingSystem.h"
+#include "entt.hpp"
+
 using Koji::Application;
 
 #include <bgfx/bgfx.h>
@@ -35,43 +40,23 @@ bool Application::Run() const {
         return false;
     }
 
-    // setuo bgfx init settings
-    bgfx::Init init;
-    init.type               = this->render_type;
-    init.vendorId           = BGFX_PCI_ID_NONE;
-    init.resolution.width   = this->window_width;
-    init.resolution.height  = this->window_height;
-    init.resolution.reset   = BGFX_RESET_VSYNC;
-    init.resolution.format  = bgfx::TextureFormat::BGRA8;
+    Renderer renderer;
+    if (!renderer.Init(window)) return -1;
 
-    bgfx::PlatformData pd{};
-    pd.nwh          = glfwGetWin32Window(window);
-    pd.ndt          = nullptr;
-    pd.context      = nullptr;
-    pd.backBuffer   = nullptr;
-    pd.backBufferDS = nullptr;
-    init.platformData = pd; // Giving the platform data this way instead of using bgfx::PlatformData avoid the segfault
+    entt::registry registry;
+    RenderingSystem renderingSystem(&renderer);
 
 
-    if (!bgfx::init(init)) {
-        std::cerr << "Failed to initialize bgfx!\n";
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return false;
-    }
 
     // Loop
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff);
-        bgfx::setViewRect(0, 0, 0, this->window_width, this->window_height);
-        bgfx::touch(0); // ensure view 0 is cleared
-        bgfx::frame();
+        renderingSystem.Render(registry);
     }
 
     // Shutdown
-    bgfx::shutdown();
+    renderer.Shutdown();
     glfwDestroyWindow(window);
     glfwTerminate();
     return true;
