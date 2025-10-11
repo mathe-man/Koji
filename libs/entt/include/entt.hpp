@@ -56,7 +56,7 @@ namespace entt {}
 #include "meta/template.hpp"
 #include "meta/type_traits.hpp"
 #include "meta/utility.hpp"
-#include "../poly/poly.hpp"
+#include "poly/poly.hpp"
 #include "process/process.hpp"
 #include "process/scheduler.hpp"
 #include "resource/cache.hpp"
