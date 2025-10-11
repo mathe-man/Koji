@@ -1,6 +1,6 @@
 #include <Koji/ECS/Systems/RenderingSystem.h>
-#include <Koji/ECS/components/Transform.h>
-#include <Koji/ECS/components/Mesh.h>
+#include <Koji/ECS/Components/Transform.h>
+#include <Koji/ECS/Components/Mesh.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
