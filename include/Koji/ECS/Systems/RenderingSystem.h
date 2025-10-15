@@ -1,7 +1,7 @@
 #pragma once
-#include <entt.hpp>
+#include <entt/entt.hpp>
 #include <Koji/Render/Renderer.h>
-#include <entt.hpp>
+#include <entt/entt.hpp>
 
 namespace Koji {
     class RenderingSystem {

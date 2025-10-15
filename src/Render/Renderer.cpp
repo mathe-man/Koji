@@ -1,9 +1,14 @@
 #include <Koji/Render/Renderer.h>
 #include <iostream>
-#include <glfw/glfw3.h>
+#include <GLFW/glfw3.h>
 
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <glfw/glfw3native.h>
+#if defined(_WIN32)
+    #define GLFW_EXPOSE_NATIVE_WIN32
+    #include <GLFW/glfw3native.h>
+#elif defined(__linux__)
+    #define GLFW_EXPOSE_NATIVE_X11
+    #include <GLFW/glfw3native.h>
+#endif
 
 using namespace Koji;
 
@@ -20,7 +25,14 @@ bool Renderer::Init(GLFWwindow *window, bgfx::RendererType::Enum render_type) {
 
     // Get native window handle
     bgfx::PlatformData pd{};
-    pd.nwh          = glfwGetWin32Window(window);
+
+#if defined(_WIN32)
+    pd.nwh = glfwGetWin32Window(window);
+#elif defined(__linux__)
+    pd.nwh = (void*)glfwGetX11Window(window);
+    pd.ndt = glfwGetX11Display(); // required for X11 backend
+#endif
+
     pd.ndt          = nullptr;
     pd.context      = nullptr;
     pd.backBuffer   = nullptr;

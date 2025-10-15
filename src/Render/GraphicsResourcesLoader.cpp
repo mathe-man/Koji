@@ -10,12 +10,13 @@ struct GraphicsResourcesLoader::PosColorVertex {
     float x, y, z;
     uint32_t abgr;
 
-    static void init() {
+    static bgfx::VertexLayout init() {
         static bgfx::VertexLayout layout;
         layout.begin()
             .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
             .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
             .end();
+        return layout;
     }
 };
 

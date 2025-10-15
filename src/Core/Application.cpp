@@ -1,8 +1,9 @@
+#include <cstring>
 #include <Koji/Core/Application.h>
 
 #include <Koji/Render/Renderer.h>
 #include "Koji/ECS/Systems/RenderingSystem.h"
-#include "entt.hpp"
+#include "entt/entt.hpp"
 #include "Koji/ECS/Components/Transform.h"
 #include "Koji/ECS/Components/Mesh.h"
 #include "Koji/Render/GraphicsResourcesLoader.h"
@@ -10,11 +11,8 @@
 using Koji::Application;
 
 #include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
-#include <glfw/glfw3.h>
+#include <GLFW/glfw3.h>
 
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <glfw/glfw3native.h>
 
 #include <iostream>
 
@@ -52,10 +50,10 @@ bool Application::Run() const {
     auto entity = registry.create();
     auto mesh = GraphicsResourcesLoader::CreateCube();
 
-    mesh.program = GraphicsResourcesLoader::LoadProgram(
+    /*mesh.program = GraphicsResourcesLoader::LoadProgram(
         "shaders/vs.bin",
         "shaders/fs.bin");
-
+*/
     registry.emplace<Mesh>(entity, mesh);
     registry.emplace<Transform>(entity, Transform{
         {0.0f, 0.0f, 0.0f},
