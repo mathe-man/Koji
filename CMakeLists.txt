@@ -9,7 +9,6 @@ set(KOJI_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 # Add include folders
 
 # glfw build settings
-# === Options pour GLFW ===
 set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "Disable Wayland backend")
 set(GLFW_BUILD_X11 ON CACHE BOOL "Enable X11 backend")
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Don't build GLFW examples")
