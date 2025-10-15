@@ -16,12 +16,11 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Don't build GLFW examples")
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "Don't build GLFW tests")
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "Don't build GLFW docs")
 
-add_subdirectory(libs/glfw-3.4)
-add_subdirectory(libs/glm-1.0.2)
-add_subdirectory(libs/entt-3.15.0)
-add_subdirectory(libs/bgfx.cmake)
-add_subdirectory(libs/reactphysics3d-0.10.2)
-
+add_subdirectory(libs/glfw)
+add_subdirectory(libs/glm)
+add_subdirectory(libs/entt)
+add_subdirectory(libs/bgfx)
+add_subdirectory(libs/reactphysics3d)
 
 
 #   Add all files from the source directory
@@ -44,9 +43,9 @@ target_include_directories(Koji PUBLIC
         include
 )
 target_include_directories(Koji PRIVATE
-        libs/entt-3.15.0/src
-        libs/bgfx.cmake/bgfx/include
-        libs/glfw-3.4/include
-        libs/glm-1.0.2
+        libs/entt/src
+        libs/bgfx/bgfx/include
+        libs/glfw/include
+        libs/glm
 )
 target_link_libraries(Koji PRIVATE glfw bgfx bx)
