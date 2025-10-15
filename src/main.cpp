@@ -27,7 +27,7 @@ int main(){
     DelayTimer timer(2500, [] {
         std::cout << "Delay timer finished\n";
     });
-    RepeatedDelayTimer r_timer(1000, [](unsigned int i) {
+    RepeatedDelayTimer r_timer(1000, [](int i) {
         std::cout << "Repeated delay iterated " << i << " times\n";
     });
 

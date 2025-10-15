@@ -49,7 +49,7 @@ namespace Koji {
         void Cancel() {m_running = false;}
 
     protected:
-        unsigned int m_iteration;
+        unsigned int m_iteration = 0;
 
         unsigned int m_delayMs;
         std::function<void(unsigned int)> m_callback;
