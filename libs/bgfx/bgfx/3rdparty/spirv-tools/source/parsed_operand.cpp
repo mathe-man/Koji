@@ -24,7 +24,10 @@ namespace spvtools {
 void EmitNumericLiteral(std::ostream* out, const spv_parsed_instruction_t& inst,
                         const spv_parsed_operand_t& operand) {
   if (operand.type != SPV_OPERAND_TYPE_LITERAL_INTEGER &&
-      operand.type != SPV_OPERAND_TYPE_TYPED_LITERAL_NUMBER)
+      operand.type != SPV_OPERAND_TYPE_LITERAL_FLOAT &&
+      operand.type != SPV_OPERAND_TYPE_TYPED_LITERAL_NUMBER &&
+      operand.type != SPV_OPERAND_TYPE_OPTIONAL_LITERAL_INTEGER &&
+      operand.type != SPV_OPERAND_TYPE_OPTIONAL_TYPED_LITERAL_INTEGER)
     return;
   if (operand.num_words < 1) return;
   // TODO(dneto): Support more than 64-bits at a time.
@@ -40,12 +43,35 @@ void EmitNumericLiteral(std::ostream* out, const spv_parsed_instruction_t& inst,
         *out << word;
         break;
       case SPV_NUMBER_FLOATING:
-        if (operand.number_bit_width == 16) {
-          *out << spvtools::utils::FloatProxy<spvtools::utils::Float16>(
-              uint16_t(word & 0xFFFF));
-        } else {
-          // Assume 32-bit floats.
-          *out << spvtools::utils::FloatProxy<float>(word);
+        switch (operand.fp_encoding) {
+          case SPV_FP_ENCODING_IEEE754_BINARY16:
+            *out << spvtools::utils::FloatProxy<spvtools::utils::Float16>(
+                uint16_t(word & 0xFFFF));
+            break;
+          case SPV_FP_ENCODING_IEEE754_BINARY32:
+            *out << spvtools::utils::FloatProxy<float>(word);
+            break;
+          case SPV_FP_ENCODING_FLOAT8_E4M3:
+            *out << spvtools::utils::FloatProxy<spvtools::utils::Float8_E4M3>(
+                uint8_t(word & 0xFF));
+            break;
+          case SPV_FP_ENCODING_FLOAT8_E5M2:
+            *out << spvtools::utils::FloatProxy<spvtools::utils::Float8_E5M2>(
+                uint8_t(word & 0xFF));
+            break;
+          // TODO Bfloat16
+          case SPV_FP_ENCODING_UNKNOWN:
+            switch (operand.number_bit_width) {
+              case 16:
+                *out << spvtools::utils::FloatProxy<spvtools::utils::Float16>(
+                    uint16_t(word & 0xFFFF));
+                break;
+              case 32:
+                *out << spvtools::utils::FloatProxy<float>(word);
+                break;
+            }
+          default:
+            break;
         }
         break;
       default:

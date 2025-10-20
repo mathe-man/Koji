@@ -29,6 +29,7 @@
 #include "source/util/bitutils.h"
 #include "source/util/hex_float.h"
 #include "source/util/parse_number.h"
+#include "source/util/string_utils.h"
 
 namespace spvtools {
 namespace {
@@ -61,28 +62,29 @@ spv_result_t advanceLine(spv_text text, spv_position position) {
 // parameters, its the users responsibility to ensure these are non null.
 spv_result_t advance(spv_text text, spv_position position) {
   // NOTE: Consume white space, otherwise don't advance.
-  if (position->index >= text->length) return SPV_END_OF_STREAM;
-  switch (text->str[position->index]) {
-    case '\0':
-      return SPV_END_OF_STREAM;
-    case ';':
-      if (spv_result_t error = advanceLine(text, position)) return error;
-      return advance(text, position);
-    case ' ':
-    case '\t':
-    case '\r':
-      position->column++;
-      position->index++;
-      return advance(text, position);
-    case '\n':
-      position->column = 0;
-      position->line++;
-      position->index++;
-      return advance(text, position);
-    default:
-      break;
+  while (true) {
+    if (position->index >= text->length) return SPV_END_OF_STREAM;
+    switch (text->str[position->index]) {
+      case '\0':
+        return SPV_END_OF_STREAM;
+      case ';':
+        if (spv_result_t error = advanceLine(text, position)) return error;
+        continue;
+      case ' ':
+      case '\t':
+      case '\r':
+        position->column++;
+        position->index++;
+        continue;
+      case '\n':
+        position->column = 0;
+        position->line++;
+        position->index++;
+        continue;
+      default:
+        return SPV_SUCCESS;
+    }
   }
-  return SPV_SUCCESS;
 }
 
 // Fetches the next word from the given text stream starting from the given
@@ -116,11 +118,15 @@ spv_result_t getWord(spv_text text, spv_position position, std::string* word) {
           break;
         case ' ':
         case ';':
+        case ',':
+        case '(':
+        case ')':
         case '\t':
         case '\n':
         case '\r':
           if (escaping || quoting) break;
-        // Fall through.
+          word->assign(text->str + start_index, text->str + position->index);
+          return SPV_SUCCESS;
         case '\0': {  // NOTE: End of word found!
           word->assign(text->str + start_index, text->str + position->index);
           return SPV_SUCCESS;
@@ -248,13 +254,13 @@ spv_result_t AssemblyContext::binaryEncodeNumericLiteral(
              << "Unexpected numeric literal type";
     case IdTypeClass::kScalarIntegerType:
       if (type.isSigned) {
-        number_type = {type.bitwidth, SPV_NUMBER_SIGNED_INT};
+        number_type = {type.bitwidth, SPV_NUMBER_SIGNED_INT, type.encoding};
       } else {
-        number_type = {type.bitwidth, SPV_NUMBER_UNSIGNED_INT};
+        number_type = {type.bitwidth, SPV_NUMBER_UNSIGNED_INT, type.encoding};
       }
       break;
     case IdTypeClass::kScalarFloatType:
-      number_type = {type.bitwidth, SPV_NUMBER_FLOATING};
+      number_type = {type.bitwidth, SPV_NUMBER_FLOATING, type.encoding};
       break;
     case IdTypeClass::kBottom:
       // kBottom means the type is unknown and we need to infer the type before
@@ -264,11 +270,11 @@ spv_result_t AssemblyContext::binaryEncodeNumericLiteral(
       // signed integer, otherwise an unsigned integer.
       uint32_t bitwidth = static_cast<uint32_t>(assumedBitWidth(type));
       if (strchr(val, '.')) {
-        number_type = {bitwidth, SPV_NUMBER_FLOATING};
+        number_type = {bitwidth, SPV_NUMBER_FLOATING, type.encoding};
       } else if (type.isSigned || val[0] == '-') {
-        number_type = {bitwidth, SPV_NUMBER_SIGNED_INT};
+        number_type = {bitwidth, SPV_NUMBER_SIGNED_INT, type.encoding};
       } else {
-        number_type = {bitwidth, SPV_NUMBER_UNSIGNED_INT};
+        number_type = {bitwidth, SPV_NUMBER_UNSIGNED_INT, type.encoding};
       }
       break;
   }
@@ -306,14 +312,8 @@ spv_result_t AssemblyContext::binaryEncodeString(const char* value,
                         << SPV_LIMIT_INSTRUCTION_WORD_COUNT_MAX << " words.";
   }
 
-  pInst->words.resize(newWordCount);
-
-  // Make sure all the bytes in the last word are 0, in case we only
-  // write a partial word at the end.
-  pInst->words.back() = 0;
-
-  char* dest = (char*)&pInst->words[oldWordCount];
-  strncpy(dest, value, length + 1);
+  pInst->words.reserve(newWordCount);
+  spvtools::utils::AppendToVector(value, &pInst->words);
 
   return SPV_SUCCESS;
 }
@@ -326,17 +326,31 @@ spv_result_t AssemblyContext::recordTypeDefinition(
                         << " has already been used to generate a type";
   }
 
-  if (pInst->opcode == SpvOpTypeInt) {
+  if (pInst->opcode == spv::Op::OpTypeInt) {
     if (pInst->words.size() != 4)
       return diagnostic() << "Invalid OpTypeInt instruction";
     types_[value] = {pInst->words[2], pInst->words[3] != 0,
-                     IdTypeClass::kScalarIntegerType};
-  } else if (pInst->opcode == SpvOpTypeFloat) {
-    if (pInst->words.size() != 3)
+                     IdTypeClass::kScalarIntegerType, SPV_FP_ENCODING_UNKNOWN};
+  } else if (pInst->opcode == spv::Op::OpTypeFloat) {
+    if ((pInst->words.size() != 3) && (pInst->words.size() != 4))
       return diagnostic() << "Invalid OpTypeFloat instruction";
-    types_[value] = {pInst->words[2], false, IdTypeClass::kScalarFloatType};
+    spv_fp_encoding_t enc = SPV_FP_ENCODING_UNKNOWN;
+    if (pInst->words.size() >= 4) {
+      const spvtools::OperandDesc* desc;
+      spv_result_t status = spvtools::LookupOperand(SPV_OPERAND_TYPE_FPENCODING,
+                                                    pInst->words[3], &desc);
+      if (status == SPV_SUCCESS) {
+        enc = spvFPEncodingFromOperandFPEncoding(
+            static_cast<spv::FPEncoding>(desc->value));
+      } else {
+        return diagnostic() << "Invalid OpTypeFloat encoding";
+      }
+    }
+    types_[value] = {pInst->words[2], false, IdTypeClass::kScalarFloatType,
+                     enc};
   } else {
-    types_[value] = {0, false, IdTypeClass::kOtherType};
+    types_[value] = {0, false, IdTypeClass::kOtherType,
+                     SPV_FP_ENCODING_UNKNOWN};
   }
   return SPV_SUCCESS;
 }

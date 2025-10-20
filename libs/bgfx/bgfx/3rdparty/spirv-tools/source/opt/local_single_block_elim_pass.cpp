@@ -1,6 +1,8 @@
 // Copyright (c) 2017 The Khronos Group Inc.
 // Copyright (c) 2017 Valve Corporation
 // Copyright (c) 2017 LunarG Inc.
+// Modifications Copyright (C) 2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,26 +20,29 @@
 
 #include <vector>
 
-#include "source/opt/iterator.h"
+#include "source/util/string_utils.h"
 
 namespace spvtools {
 namespace opt {
 namespace {
-
-const uint32_t kStoreValIdInIdx = 1;
-
-}  // anonymous namespace
+constexpr uint32_t kStoreValIdInIdx = 1;
+}  // namespace
 
 bool LocalSingleBlockLoadStoreElimPass::HasOnlySupportedRefs(uint32_t ptrId) {
   if (supported_ref_ptrs_.find(ptrId) != supported_ref_ptrs_.end()) return true;
   if (get_def_use_mgr()->WhileEachUser(ptrId, [this](Instruction* user) {
-        SpvOp op = user->opcode();
-        if (IsNonPtrAccessChain(op) || op == SpvOpCopyObject) {
+        auto dbg_op = user->GetCommonDebugOpcode();
+        if (dbg_op == CommonDebugInfoDebugDeclare ||
+            dbg_op == CommonDebugInfoDebugValue) {
+          return true;
+        }
+        spv::Op op = user->opcode();
+        if (IsNonPtrAccessChain(op) || op == spv::Op::OpCopyObject) {
           if (!HasOnlySupportedRefs(user->result_id())) {
             return false;
           }
-        } else if (op != SpvOpStore && op != SpvOpLoad && op != SpvOpName &&
-                   !IsNonTypeDecorate(op)) {
+        } else if (op != spv::Op::OpStore && op != spv::Op::OpLoad &&
+                   op != spv::Op::OpName && !IsNonTypeDecorate(op)) {
           return false;
         }
         return true;
@@ -62,7 +67,7 @@ bool LocalSingleBlockLoadStoreElimPass::LocalSingleBlockLoadStoreElim(
     for (auto ii = next; ii != bi->end(); ii = next) {
       ++next;
       switch (ii->opcode()) {
-        case SpvOpStore: {
+        case spv::Op::OpStore: {
           // Verify store variable is target type
           uint32_t varId;
           Instruction* ptrInst = GetPtr(&*ii, &varId);
@@ -71,12 +76,15 @@ bool LocalSingleBlockLoadStoreElimPass::LocalSingleBlockLoadStoreElim(
           // If a store to the whole variable, remember it for succeeding
           // loads and stores. Otherwise forget any previous store to that
           // variable.
-          if (ptrInst->opcode() == SpvOpVariable) {
+          if (ptrInst->opcode() == spv::Op::OpVariable) {
             // If a previous store to same variable, mark the store
-            // for deletion if not still used.
+            // for deletion if not still used. Don't delete store
+            // if debugging; let ssa-rewrite and DCE handle it
             auto prev_store = var2store_.find(varId);
             if (prev_store != var2store_.end() &&
-                instructions_to_save.count(prev_store->second) == 0) {
+                instructions_to_save.count(prev_store->second) == 0 &&
+                !context()->get_debug_info_mgr()->IsVariableDebugDeclared(
+                    varId)) {
               instructions_to_kill.push_back(prev_store->second);
               modified = true;
             }
@@ -105,14 +113,14 @@ bool LocalSingleBlockLoadStoreElimPass::LocalSingleBlockLoadStoreElim(
             var2load_.erase(varId);
           }
         } break;
-        case SpvOpLoad: {
+        case spv::Op::OpLoad: {
           // Verify store variable is target type
           uint32_t varId;
           Instruction* ptrInst = GetPtr(&*ii, &varId);
           if (!IsTargetVar(varId)) continue;
           if (!HasOnlySupportedRefs(varId)) continue;
           uint32_t replId = 0;
-          if (ptrInst->opcode() == SpvOpVariable) {
+          if (ptrInst->opcode() == spv::Op::OpVariable) {
             // If a load from a variable, look for a previous store or
             // load from that variable and use its value.
             auto si = var2store_.find(varId);
@@ -137,11 +145,11 @@ bool LocalSingleBlockLoadStoreElimPass::LocalSingleBlockLoadStoreElim(
             instructions_to_kill.push_back(&*ii);
             modified = true;
           } else {
-            if (ptrInst->opcode() == SpvOpVariable)
+            if (ptrInst->opcode() == spv::Op::OpVariable)
               var2load_[varId] = &*ii;  // register load
           }
         } break;
-        case SpvOpFunctionCall: {
+        case spv::Op::OpFunctionCall: {
           // Conservatively assume all locals are redefined for now.
           // TODO(): Handle more optimally
           var2store_.clear();
@@ -175,24 +183,36 @@ void LocalSingleBlockLoadStoreElimPass::Initialize() {
 bool LocalSingleBlockLoadStoreElimPass::AllExtensionsSupported() const {
   // If any extension not in allowlist, return false
   for (auto& ei : get_module()->extensions()) {
-    const char* extName =
-        reinterpret_cast<const char*>(&ei.GetInOperand(0).words[0]);
+    const std::string extName = ei.GetInOperand(0).AsString();
     if (extensions_allowlist_.find(extName) == extensions_allowlist_.end())
       return false;
+  }
+  // only allow NonSemantic.Shader.DebugInfo.100, we cannot safely optimise
+  // around unknown extended
+  // instruction sets even if they are non-semantic
+  for (auto& inst : context()->module()->ext_inst_imports()) {
+    assert(inst.opcode() == spv::Op::OpExtInstImport &&
+           "Expecting an import of an extension's instruction set.");
+    const std::string extension_name = inst.GetInOperand(0).AsString();
+    if (spvtools::utils::starts_with(extension_name, "NonSemantic.") &&
+        extension_name != "NonSemantic.Shader.DebugInfo.100") {
+      return false;
+    }
   }
   return true;
 }
 
 Pass::Status LocalSingleBlockLoadStoreElimPass::ProcessImpl() {
   // Assumes relaxed logical addressing only (see instruction.h).
-  if (context()->get_feature_mgr()->HasCapability(SpvCapabilityAddresses))
+  if (context()->get_feature_mgr()->HasCapability(spv::Capability::Addresses))
     return Status::SuccessWithoutChange;
 
   // Do not process if module contains OpGroupDecorate. Additional
   // support required in KillNamesAndDecorates().
   // TODO(greg-lunarg): Add support for OpGroupDecorate
   for (auto& ai : get_module()->annotations())
-    if (ai.opcode() == SpvOpGroupDecorate) return Status::SuccessWithoutChange;
+    if (ai.opcode() == spv::Op::OpGroupDecorate)
+      return Status::SuccessWithoutChange;
   // If any extensions in the module are not explicitly supported,
   // return unmodified.
   if (!AllExtensionsSupported()) return Status::SuccessWithoutChange;
@@ -201,7 +221,7 @@ Pass::Status LocalSingleBlockLoadStoreElimPass::ProcessImpl() {
     return LocalSingleBlockLoadStoreElim(fp);
   };
 
-  bool modified = context()->ProcessEntryPointCallTree(pfn);
+  bool modified = context()->ProcessReachableCallTree(pfn);
   return modified ? Status::SuccessWithChange : Status::SuccessWithoutChange;
 }
 
@@ -221,9 +241,11 @@ void LocalSingleBlockLoadStoreElimPass::InitExtensions() {
       "SPV_AMD_gcn_shader",
       "SPV_KHR_shader_ballot",
       "SPV_AMD_shader_ballot",
+      "SPV_AMDX_shader_enqueue",
       "SPV_AMD_gpu_shader_half_float",
       "SPV_KHR_shader_draw_parameters",
       "SPV_KHR_subgroup_vote",
+      "SPV_KHR_8bit_storage",
       "SPV_KHR_16bit_storage",
       "SPV_KHR_device_group",
       "SPV_KHR_multiview",
@@ -255,11 +277,33 @@ void LocalSingleBlockLoadStoreElimPass::InitExtensions() {
       "SPV_NV_shader_image_footprint",
       "SPV_NV_shading_rate",
       "SPV_NV_mesh_shader",
+      "SPV_EXT_mesh_shader",
       "SPV_NV_ray_tracing",
       "SPV_KHR_ray_tracing",
       "SPV_KHR_ray_query",
       "SPV_EXT_fragment_invocation_density",
       "SPV_EXT_physical_storage_buffer",
+      "SPV_KHR_physical_storage_buffer",
+      "SPV_KHR_terminate_invocation",
+      "SPV_KHR_subgroup_uniform_control_flow",
+      "SPV_KHR_integer_dot_product",
+      "SPV_EXT_shader_image_int64",
+      "SPV_KHR_non_semantic_info",
+      "SPV_KHR_uniform_group_instructions",
+      "SPV_KHR_fragment_shader_barycentric",
+      "SPV_KHR_vulkan_memory_model",
+      "SPV_NV_bindless_texture",
+      "SPV_EXT_shader_atomic_float_add",
+      "SPV_EXT_fragment_shader_interlock",
+      "SPV_KHR_compute_shader_derivatives",
+      "SPV_NV_cooperative_matrix",
+      "SPV_KHR_cooperative_matrix",
+      "SPV_KHR_ray_tracing_position_fetch",
+      "SPV_KHR_fragment_shading_rate",
+      "SPV_KHR_quad_control",
+      "SPV_NV_shader_invocation_reorder",
+      "SPV_NV_cluster_acceleration_structure",
+      "SPV_NV_linear_swept_spheres",
   });
 }
 

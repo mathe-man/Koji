@@ -15,7 +15,6 @@
 #include "source/opt/loop_unroller.h"
 
 #include <limits>
-#include <map>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -68,10 +67,10 @@ namespace opt {
 namespace {
 
 // Loop control constant value for DontUnroll flag.
-static const uint32_t kLoopControlDontUnrollIndex = 2;
+constexpr uint32_t kLoopControlDontUnrollIndex = 2;
 
 // Operand index of the loop control parameter of the OpLoopMerge.
-static const uint32_t kLoopControlIndex = 2;
+constexpr uint32_t kLoopControlIndex = 2;
 
 // This utility class encapsulates some of the state we need to maintain between
 // loop unrolls. Specifically it maintains key blocks and the induction variable
@@ -163,7 +162,7 @@ struct LoopUnrollState {
 };
 
 // This class implements the actual unrolling. It uses a LoopUnrollState to
-// maintain the state of the unrolling inbetween steps.
+// maintain the state of the unrolling in between steps.
 class LoopUnrollerUtilsImpl {
  public:
   using BasicBlockListTy = std::vector<std::unique_ptr<BasicBlock>>;
@@ -209,7 +208,7 @@ class LoopUnrollerUtilsImpl {
   // Add all blocks_to_add_ to function_ at the |insert_point|.
   void AddBlocksToFunction(const BasicBlock* insert_point);
 
-  // Duplicates the |old_loop|, cloning each body and remaping the ids without
+  // Duplicates the |old_loop|, cloning each body and remapping the ids without
   // removing instructions or changing relative structure. Result will be stored
   // in |new_loop|.
   void DuplicateLoop(Loop* old_loop, Loop* new_loop);
@@ -241,7 +240,7 @@ class LoopUnrollerUtilsImpl {
   // Remap all the in |basic_block| to new IDs and keep the mapping of new ids
   // to old
   // ids. |loop| is used to identify special loop blocks (header, continue,
-  // ect).
+  // etc).
   void AssignNewResultIds(BasicBlock* basic_block);
 
   // Using the map built by AssignNewResultIds, replace the uses in |inst|
@@ -286,6 +285,9 @@ class LoopUnrollerUtilsImpl {
   // to be the actual value of the phi at that point.
   void LinkLastPhisToStart(Loop* loop) const;
 
+  // Kill all debug declaration instructions from |bb|.
+  void KillDebugDeclares(BasicBlock* bb);
+
   // A pointer to the IRContext. Used to add/remove instructions and for usedef
   // chains.
   IRContext* context_;
@@ -317,7 +319,7 @@ class LoopUnrollerUtilsImpl {
   // and then be remapped at the end.
   std::vector<Instruction*> loop_phi_instructions_;
 
-  // The number of loop iterations that the loop would preform pre-unroll.
+  // The number of loop iterations that the loop would perform pre-unroll.
   size_t number_of_loop_iterations_;
 
   // The amount that the loop steps each iteration.
@@ -333,8 +335,7 @@ class LoopUnrollerUtilsImpl {
 
 // Retrieve the index of the OpPhi instruction |phi| which corresponds to the
 // incoming |block| id.
-static uint32_t GetPhiIndexFromLabel(const BasicBlock* block,
-                                     const Instruction* phi) {
+uint32_t GetPhiIndexFromLabel(const BasicBlock* block, const Instruction* phi) {
   for (uint32_t i = 1; i < phi->NumInOperands(); i += 2) {
     if (block->id() == phi->GetSingleWordInOperand(i)) {
       return i;
@@ -379,8 +380,9 @@ void LoopUnrollerUtilsImpl::PartiallyUnrollResidualFactor(Loop* loop,
                                                           size_t factor) {
   // TODO(1841): Handle id overflow.
   std::unique_ptr<Instruction> new_label{new Instruction(
-      context_, SpvOp::SpvOpLabel, 0, context_->TakeNextId(), {})};
+      context_, spv::Op::OpLabel, 0, context_->TakeNextId(), {})};
   std::unique_ptr<BasicBlock> new_exit_bb{new BasicBlock(std::move(new_label))};
+  new_exit_bb->SetParent(&function_);
 
   // Save the id of the block before we move it.
   uint32_t new_merge_id = new_exit_bb->id();
@@ -558,6 +560,10 @@ void LoopUnrollerUtilsImpl::ReplaceInductionUseWithFinalValue(Loop* loop) {
   loop->GetInductionVariables(inductions);
 
   for (size_t index = 0; index < inductions.size(); ++index) {
+    // We don't want the decorations that applied to the induction variable
+    // to be applied to the value that replace it.
+    context_->KillNamesAndDecorates(state_.previous_phis_[index]);
+
     uint32_t trip_step_id = GetPhiDefID(state_.previous_phis_[index],
                                         state_.previous_latch_block_->id());
     context_->ReplaceAllUsesWith(inductions[index]->result_id(), trip_step_id);
@@ -598,6 +604,20 @@ void LoopUnrollerUtilsImpl::FullyUnroll(Loop* loop) {
       IRContext::Analysis::kAnalysisDefUse);
 }
 
+void LoopUnrollerUtilsImpl::KillDebugDeclares(BasicBlock* bb) {
+  // We cannot kill an instruction inside BasicBlock::ForEachInst()
+  // because it will generate dangling pointers. We use |to_be_killed|
+  // to kill them after the loop.
+  std::vector<Instruction*> to_be_killed;
+
+  bb->ForEachInst([&to_be_killed, this](Instruction* inst) {
+    if (context_->get_debug_info_mgr()->IsDebugDeclare(inst)) {
+      to_be_killed.push_back(inst);
+    }
+  });
+  for (auto* inst : to_be_killed) context_->KillInst(inst);
+}
+
 // Copy a given basic block, give it a new result_id, and store the new block
 // and the id mapping in the state. |preserve_instructions| is used to determine
 // whether or not this function should edit instructions other than the
@@ -607,6 +627,9 @@ void LoopUnrollerUtilsImpl::CopyBasicBlock(Loop* loop, const BasicBlock* itr,
   // Clone the block exactly, including the IDs.
   BasicBlock* basic_block = itr->Clone(context_);
   basic_block->SetParent(itr->GetParent());
+
+  // We do not want to duplicate DebugDeclare.
+  KillDebugDeclares(basic_block);
 
   // Assign each result a new unique ID and keep a mapping of the old ids to
   // the new ones.
@@ -674,21 +697,21 @@ void LoopUnrollerUtilsImpl::CopyBody(Loop* loop, bool eliminate_conditions) {
   std::vector<Instruction*> inductions;
   loop->GetInductionVariables(inductions);
   for (size_t index = 0; index < inductions.size(); ++index) {
-    Instruction* master_copy = inductions[index];
+    Instruction* primary_copy = inductions[index];
 
-    assert(master_copy->result_id() != 0);
+    assert(primary_copy->result_id() != 0);
     Instruction* induction_clone =
-        state_.ids_to_new_inst[state_.new_inst[master_copy->result_id()]];
+        state_.ids_to_new_inst[state_.new_inst[primary_copy->result_id()]];
 
     state_.new_phis_.push_back(induction_clone);
     assert(induction_clone->result_id() != 0);
 
     if (!state_.previous_phis_.empty()) {
-      state_.new_inst[master_copy->result_id()] = GetPhiDefID(
+      state_.new_inst[primary_copy->result_id()] = GetPhiDefID(
           state_.previous_phis_[index], state_.previous_latch_block_->id());
     } else {
       // Do not replace the first phi block ids.
-      state_.new_inst[master_copy->result_id()] = master_copy->result_id();
+      state_.new_inst[primary_copy->result_id()] = primary_copy->result_id();
     }
   }
 
@@ -729,13 +752,19 @@ void LoopUnrollerUtilsImpl::FoldConditionBlock(BasicBlock* condition_block,
   Instruction& old_branch = *condition_block->tail();
   uint32_t new_target = old_branch.GetSingleWordOperand(operand_label);
 
+  DebugScope scope = old_branch.GetDebugScope();
+  const std::vector<Instruction> lines = old_branch.dbg_line_insts();
+
   context_->KillInst(&old_branch);
   // Add the new unconditional branch to the merge block.
   InstructionBuilder builder(
       context_, condition_block,
       IRContext::Analysis::kAnalysisDefUse |
           IRContext::Analysis::kAnalysisInstrToBlockMapping);
-  builder.AddBranch(new_target);
+  Instruction* new_branch = builder.AddBranch(new_target);
+
+  if (!lines.empty()) new_branch->AddDebugLine(&lines.back());
+  new_branch->SetDebugScope(scope);
 }
 
 void LoopUnrollerUtilsImpl::CloseUnrolledLoop(Loop* loop) {
@@ -770,6 +799,9 @@ void LoopUnrollerUtilsImpl::CloseUnrolledLoop(Loop* loop) {
 
   for (BasicBlock* block : loop_blocks_inorder_) {
     RemapOperands(block);
+  }
+  for (auto& block_itr : blocks_to_add_) {
+    RemapOperands(block_itr.get());
   }
 
   // Rewrite the last phis, since they may still reference the original phi.
@@ -810,7 +842,7 @@ void LoopUnrollerUtilsImpl::DuplicateLoop(Loop* old_loop, Loop* new_loop) {
   new_loop->SetMergeBlock(new_merge);
 }
 
-// Whenever the utility copies a block it stores it in a tempory buffer, this
+// Whenever the utility copies a block it stores it in a temporary buffer, this
 // function adds the buffer into the Function. The blocks will be inserted
 // after the block |insert_point|.
 void LoopUnrollerUtilsImpl::AddBlocksToFunction(
@@ -844,6 +876,10 @@ void LoopUnrollerUtilsImpl::AssignNewResultIds(BasicBlock* basic_block) {
   def_use_mgr->AnalyzeInstDefUse(basic_block->GetLabelInst());
 
   for (Instruction& inst : *basic_block) {
+    // Do def/use analysis on new lines
+    for (auto& line : inst.dbg_line_insts())
+      def_use_mgr->AnalyzeInstDefUse(&line);
+
     uint32_t old_id = inst.result_id();
 
     // Ignore stores etc.
@@ -957,17 +993,31 @@ bool LoopUtils::CanPerformUnroll() {
 
   // Check that we can find and process the induction variable.
   const Instruction* induction = loop_->FindConditionVariable(condition);
-  if (!induction || induction->opcode() != SpvOpPhi) return false;
+  if (!induction || induction->opcode() != spv::Op::OpPhi) return false;
 
   // Check that we can find the number of loop iterations.
   if (!loop_->FindNumberOfIterations(induction, &*condition->ctail(), nullptr))
     return false;
 
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  // ClusterFuzz/OSS-Fuzz is likely to yield examples with very high loop
+  // iteration counts. This can cause timeouts and memouts during fuzzing that
+  // are not classed as bugs. To avoid this noise, loop unrolling is not applied
+  // to loops with large iteration counts when fuzzing.
+  constexpr size_t kFuzzerIterationLimit = 100;
+  size_t num_iterations;
+  loop_->FindNumberOfIterations(induction, &*condition->ctail(),
+                                &num_iterations);
+  if (num_iterations > kFuzzerIterationLimit) {
+    return false;
+  }
+#endif
+
   // Make sure the latch block is a unconditional branch to the header
   // block.
   const Instruction& branch = *loop_->GetLatchBlock()->ctail();
   bool branching_assumption =
-      branch.opcode() == SpvOpBranch &&
+      branch.opcode() == spv::Op::OpBranch &&
       branch.GetSingleWordInOperand(0) == loop_->GetHeaderBlock()->id();
   if (!branching_assumption) {
     return false;
@@ -995,9 +1045,10 @@ bool LoopUtils::CanPerformUnroll() {
   // exit the loop.
   for (uint32_t label_id : loop_->GetBlocks()) {
     const BasicBlock* block = context_->cfg()->block(label_id);
-    if (block->ctail()->opcode() == SpvOp::SpvOpKill ||
-        block->ctail()->opcode() == SpvOp::SpvOpReturn ||
-        block->ctail()->opcode() == SpvOp::SpvOpReturnValue) {
+    if (block->ctail()->opcode() == spv::Op::OpKill ||
+        block->ctail()->opcode() == spv::Op::OpReturn ||
+        block->ctail()->opcode() == spv::Op::OpReturnValue ||
+        block->ctail()->opcode() == spv::Op::OpTerminateInvocation) {
       return false;
     }
   }
@@ -1068,6 +1119,10 @@ void LoopUtils::Finalize() {
 Pass::Status LoopUnroller::Process() {
   bool changed = false;
   for (Function& f : *context()->module()) {
+    if (f.IsDeclaration()) {
+      continue;
+    }
+
     LoopDescriptor* LD = context()->GetLoopDescriptor(&f);
     for (Loop& loop : *LD) {
       LoopUtils loop_utils{context(), &loop};

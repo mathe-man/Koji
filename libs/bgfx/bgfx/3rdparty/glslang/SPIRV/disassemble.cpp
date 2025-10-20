@@ -36,6 +36,7 @@
 // Disassembler for SPIR-V.
 //
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
@@ -43,10 +44,11 @@
 #include <stack>
 #include <sstream>
 #include <cstring>
+#include <utility>
 
 #include "disassemble.h"
 #include "doc.h"
-#include "SpvTools.h"
+#include "spvUtil.h"
 
 namespace spv {
     extern "C" {
@@ -54,6 +56,9 @@ namespace spv {
         #include "GLSL.std.450.h"
         #include "GLSL.ext.AMD.h"
         #include "GLSL.ext.NV.h"
+        #include "GLSL.ext.ARM.h"
+        #include "NonSemanticShaderDebugInfo100.h"
+        #include "GLSL.ext.QCOM.h"
     }
 }
 const char* GlslStd450DebugNames[spv::GLSLstd450Count];
@@ -62,6 +67,7 @@ namespace spv {
 
 static const char* GLSLextAMDGetDebugNames(const char*, unsigned);
 static const char* GLSLextNVGetDebugNames(const char*, unsigned);
+static const char* NonSemanticShaderDebugInfo100GetDebugNames(unsigned);
 
 static void Kill(std::ostream& out, const char* message)
 {
@@ -76,6 +82,8 @@ enum ExtInstSet {
     GLSLextNVInst,
     OpenCLExtInst,
     NonSemanticDebugPrintfExtInst,
+    NonSemanticDebugBreakExtInst,
+    NonSemanticShaderDebugInfo100
 };
 
 // Container class for a single instance of a SPIR-V stream, with methods for disassembly.
@@ -90,7 +98,7 @@ public:
 protected:
     SpirvStream(const SpirvStream&);
     SpirvStream& operator=(const SpirvStream&);
-    Op getOpCode(int id) const { return idInstruction[id] ? (Op)(stream[idInstruction[id]] & OpCodeMask) : OpNop; }
+    Op getOpCode(int id) const { return idInstruction[id] ? (Op)(stream[idInstruction[id]] & OpCodeMask) : Op::OpNop; }
 
     // Output methods
     void outputIndent();
@@ -101,6 +109,7 @@ protected:
     void outputMask(OperandClass operandClass, unsigned mask);
     void disassembleImmediates(int numOperands);
     void disassembleIds(int numOperands);
+    std::pair<int, std::string> decodeString();
     int disassembleString();
     void disassembleInstruction(Id resultId, Id typeId, Op opCode, int numOperands);
 
@@ -179,14 +188,14 @@ void SpirvStream::processInstructions()
 
         // Type <id>
         Id typeId = 0;
-        if (InstructionDesc[opCode].hasType()) {
+        if (InstructionDesc[enumCast(opCode)].hasType()) {
             typeId = stream[word++];
             --numOperands;
         }
 
         // Result <id>
         Id resultId = 0;
-        if (InstructionDesc[opCode].hasResult()) {
+        if (InstructionDesc[enumCast(opCode)].hasResult()) {
             resultId = stream[word++];
             --numOperands;
 
@@ -291,81 +300,116 @@ void SpirvStream::disassembleIds(int numOperands)
     }
 }
 
-// return the number of operands consumed by the string
-int SpirvStream::disassembleString()
+// decode string from words at current position (non-consuming)
+std::pair<int, std::string> SpirvStream::decodeString()
 {
-    int startWord = word;
-
-    out << " \"";
-
-    const char* wordString;
+    std::string res;
+    int wordPos = word;
+    char c;
     bool done = false;
+
     do {
-        unsigned int content = stream[word];
-        wordString = (const char*)&content;
+        unsigned int content = stream[wordPos];
         for (int charCount = 0; charCount < 4; ++charCount) {
-            if (*wordString == 0) {
+            c = content & 0xff;
+            content >>= 8;
+            if (c == '\0') {
                 done = true;
                 break;
             }
-            out << *(wordString++);
+            res += c;
         }
-        ++word;
-    } while (! done);
+        ++wordPos;
+    } while(! done);
 
+    return std::make_pair(wordPos - word, res);
+}
+
+// return the number of operands consumed by the string
+int SpirvStream::disassembleString()
+{
+    out << " \"";
+
+    std::pair<int, std::string> decoderes = decodeString();
+
+    out << decoderes.second;
     out << "\"";
 
-    return word - startWord;
+    word += decoderes.first;
+
+    return decoderes.first;
+}
+
+static uint32_t popcount(uint32_t mask)
+{
+    uint32_t count = 0;
+    while (mask) {
+        if (mask & 1) {
+            count++;
+        }
+        mask >>= 1;
+    }
+    return count;
 }
 
 void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, int numOperands)
 {
     // Process the opcode
 
-    out << (OpcodeString(opCode) + 2);  // leave out the "Op"
+    out << (OpcodeString((int)opCode) + 2);  // leave out the "Op"
 
-    if (opCode == OpLoopMerge || opCode == OpSelectionMerge)
+    if (opCode == Op::OpLoopMerge || opCode == Op::OpSelectionMerge)
         nextNestedControl = stream[word];
-    else if (opCode == OpBranchConditional || opCode == OpSwitch) {
+    else if (opCode == Op::OpBranchConditional || opCode == Op::OpSwitch) {
         if (nextNestedControl) {
             nestedControl.push(nextNestedControl);
             nextNestedControl = 0;
         }
-    } else if (opCode == OpExtInstImport) {
-        idDescriptor[resultId] = (const char*)(&stream[word]);
+    } else if (opCode == Op::OpExtInstImport) {
+        idDescriptor[resultId] = decodeString().second;
     }
     else {
         if (resultId != 0 && idDescriptor[resultId].size() == 0) {
             switch (opCode) {
-            case OpTypeInt:
+            case Op::OpTypeInt:
                 switch (stream[word]) {
                 case 8:  idDescriptor[resultId] = "int8_t"; break;
                 case 16: idDescriptor[resultId] = "int16_t"; break;
-                default: assert(0); // fallthrough
+                default: assert(0); [[fallthrough]];
                 case 32: idDescriptor[resultId] = "int"; break;
                 case 64: idDescriptor[resultId] = "int64_t"; break;
                 }
                 break;
-            case OpTypeFloat:
+            case Op::OpTypeFloat:
                 switch (stream[word]) {
-                case 16: idDescriptor[resultId] = "float16_t"; break;
-                default: assert(0); // fallthrough
+                case 16:
+                    if (numOperands > 1 && stream[word+1] == spv::FPEncoding::BFloat16KHR) {
+                        idDescriptor[resultId] = "bfloat16_t";
+                    } else {
+                        idDescriptor[resultId] = "float16_t";
+                    }
+                    break;
+                default: assert(0); [[fallthrough]];
                 case 32: idDescriptor[resultId] = "float"; break;
                 case 64: idDescriptor[resultId] = "float64_t"; break;
                 }
                 break;
-            case OpTypeBool:
+            case Op::OpTypeBool:
                 idDescriptor[resultId] = "bool";
                 break;
-            case OpTypeStruct:
+            case Op::OpTypeStruct:
                 idDescriptor[resultId] = "struct";
                 break;
-            case OpTypePointer:
+            case Op::OpTypePointer:
                 idDescriptor[resultId] = "ptr";
                 break;
-            case OpTypeVector:
+            case Op::OpTypeVector:
                 if (idDescriptor[stream[word]].size() > 0) {
-                    idDescriptor[resultId].append(idDescriptor[stream[word]].begin(), idDescriptor[stream[word]].begin() + 1);
+                    if (idDescriptor[stream[word]].substr(0,2) == "bf") {
+                        idDescriptor[resultId].append(idDescriptor[stream[word]].begin(), idDescriptor[stream[word]].begin() + 2);
+                    } else {
+                        idDescriptor[resultId].append(idDescriptor[stream[word]].begin(), idDescriptor[stream[word]].begin() + 1);
+                    }
                     if (strstr(idDescriptor[stream[word]].c_str(), "8")) {
                         idDescriptor[resultId].append("8");
                     }
@@ -397,10 +441,10 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
     // swapped in mid-traversal.
 
     // Handle images specially, so can put out helpful strings.
-    if (opCode == OpTypeImage) {
+    if (opCode == Op::OpTypeImage) {
         out << " ";
         disassembleIds(1);
-        out << " " << DimensionString((Dim)stream[word++]);
+        out << " " << DimensionString((int)(Dim)stream[word++]);
         out << (stream[word++] != 0 ? " depth" : "");
         out << (stream[word++] != 0 ? " array" : "");
         out << (stream[word++] != 0 ? " multi-sampled" : "");
@@ -409,7 +453,7 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
         case 1: out << " sampled";    break;
         case 2: out << " nonsampled"; break;
         }
-        out << " format:" << ImageFormatString((ImageFormat)stream[word++]);
+        out << " format:" << ImageFormatString((int)(ImageFormat)stream[word++]);
 
         if (numOperands == 8) {
             out << " " << AccessQualifierString(stream[word++]);
@@ -418,9 +462,9 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
     }
 
     // Handle all the parameterized operands
-    for (int op = 0; op < InstructionDesc[opCode].operands.getNum() && numOperands > 0; ++op) {
+    for (int op = 0; op < InstructionDesc[enumCast(opCode)].operands.getNum() && numOperands > 0; ++op) {
         out << " ";
-        OperandClass operandClass = InstructionDesc[opCode].operands.getClass(op);
+        OperandClass operandClass = InstructionDesc[enumCast(opCode)].operands.getClass(op);
         switch (operandClass) {
         case OperandId:
         case OperandScope:
@@ -428,8 +472,8 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
             disassembleIds(1);
             --numOperands;
             // Get names for printing "(XXX)" for readability, *after* this id
-            if (opCode == OpName)
-                idDescriptor[stream[word - 1]] = (const char*)(&stream[word]);
+            if (opCode == Op::OpName)
+                idDescriptor[stream[word - 1]] = decodeString().second;
             break;
         case OperandVariableIds:
             disassembleIds(numOperands);
@@ -441,8 +485,8 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
             return;
         case OperandOptionalLiteral:
         case OperandVariableLiterals:
-            if ((opCode == OpDecorate && stream[word - 1] == DecorationBuiltIn) ||
-                (opCode == OpMemberDecorate && stream[word - 1] == DecorationBuiltIn)) {
+            if ((opCode == Op::OpDecorate && stream[word - 1] == Decoration::BuiltIn) ||
+                (opCode == Op::OpMemberDecorate && stream[word - 1] == Decoration::BuiltIn)) {
                 out << BuiltInString(stream[word++]);
                 --numOperands;
                 ++op;
@@ -478,7 +522,7 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
         case OperandLiteralNumber:
             disassembleImmediates(1);
             --numOperands;
-            if (opCode == OpExtInst) {
+            if (opCode == Op::OpExtInst) {
                 ExtInstSet extInstSet = GLSL450Inst;
                 const char* name = idDescriptor[stream[word - 2]].c_str();
                 if (strcmp("OpenCL.std", name) == 0) {
@@ -487,6 +531,10 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
                     extInstSet = OpenCLExtInst;
                 } else if (strcmp("NonSemantic.DebugPrintf", name) == 0) {
                     extInstSet = NonSemanticDebugPrintfExtInst;
+                } else if (strcmp("NonSemantic.DebugBreak", name) == 0) {
+                    extInstSet = NonSemanticDebugBreakExtInst;
+                } else if (strcmp("NonSemantic.Shader.DebugInfo.100", name) == 0) {
+                    extInstSet = NonSemanticShaderDebugInfo100;
                 } else if (strcmp(spv::E_SPV_AMD_shader_ballot, name) == 0 ||
                            strcmp(spv::E_SPV_AMD_shader_trinary_minmax, name) == 0 ||
                            strcmp(spv::E_SPV_AMD_shader_explicit_vertex_parameter, name) == 0 ||
@@ -495,7 +543,7 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
                 } else if (strcmp(spv::E_SPV_NV_sample_mask_override_coverage, name) == 0 ||
                           strcmp(spv::E_SPV_NV_geometry_shader_passthrough, name) == 0 ||
                           strcmp(spv::E_SPV_NV_viewport_array2, name) == 0 ||
-                          strcmp(spv::E_SPV_NVX_multiview_per_view_attributes, name) == 0 || 
+                          strcmp(spv::E_SPV_NVX_multiview_per_view_attributes, name) == 0 ||
                           strcmp(spv::E_SPV_NV_fragment_shader_barycentric, name) == 0 ||
                           strcmp(spv::E_SPV_NV_mesh_shader, name) == 0) {
                     extInstSet = GLSLextNVInst;
@@ -512,6 +560,10 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
                     out << "(" << GLSLextNVGetDebugNames(name, entrypoint) << ")";
                 } else if (extInstSet == NonSemanticDebugPrintfExtInst) {
                     out << "(DebugPrintf)";
+                } else if (extInstSet == NonSemanticDebugBreakExtInst) {
+                    out << "(DebugBreak)";
+                } else if (extInstSet == NonSemanticShaderDebugInfo100) {
+                    out << "(" << NonSemanticShaderDebugInfo100GetDebugNames(entrypoint) << ")";
                 }
             }
             break;
@@ -519,19 +571,46 @@ void SpirvStream::disassembleInstruction(Id resultId, Id /*typeId*/, Op opCode, 
         case OperandLiteralString:
             numOperands -= disassembleString();
             break;
-        case OperandMemoryAccess:
-            outputMask(OperandMemoryAccess, stream[word++]);
-            --numOperands;
-            // Aligned is the only memory access operand that uses an immediate
-            // value, and it is also the first operand that uses a value at all.
-            if (stream[word-1] & MemoryAccessAlignedMask) {
-                disassembleImmediates(1);
-                numOperands--;
-                if (numOperands)
-                    out << " ";
-            }
-            disassembleIds(numOperands);
+        case OperandVariableLiteralStrings:
+            while (numOperands > 0)
+                numOperands -= disassembleString();
             return;
+        case OperandMemoryAccess:
+            {
+                outputMask(OperandMemoryAccess, stream[word++]);
+                --numOperands;
+                // Put a space after "None" if there are any remaining operands
+                if (numOperands && stream[word-1] == 0) {
+                    out << " ";
+                }
+                uint32_t mask = stream[word-1];
+                // Aligned is the only memory access operand that uses an immediate
+                // value, and it is also the first operand that uses a value at all.
+                if (mask & (uint32_t)MemoryAccessMask::Aligned) {
+                    disassembleImmediates(1);
+                    numOperands--;
+                    if (numOperands)
+                        out << " ";
+                }
+
+                uint32_t bitCount = popcount(mask & (uint32_t)(MemoryAccessMask::MakePointerAvailable | MemoryAccessMask::MakePointerVisible));
+                disassembleIds(bitCount);
+                numOperands -= bitCount;
+            }
+            break;
+        case OperandTensorAddressingOperands:
+            {
+                outputMask(OperandTensorAddressingOperands, stream[word++]);
+                --numOperands;
+                // Put a space after "None" if there are any remaining operands
+                if (numOperands && stream[word-1] == 0) {
+                    out << " ";
+                }
+                uint32_t bitCount = popcount(stream[word-1]);
+                disassembleIds(bitCount);
+                numOperands -= bitCount;
+            }
+            break;
         default:
             assert(operandClass >= OperandSource && operandClass < OperandOpcode);
 
@@ -689,45 +768,98 @@ static const char* GLSLextNVGetDebugNames(const char* name, unsigned entrypoint)
         strcmp(name, spv::E_SPV_NV_shader_image_footprint) == 0) {
         switch (entrypoint) {
         // NV builtins
-        case BuiltInViewportMaskNV:                 return "ViewportMaskNV";
-        case BuiltInSecondaryPositionNV:            return "SecondaryPositionNV";
-        case BuiltInSecondaryViewportMaskNV:        return "SecondaryViewportMaskNV";
-        case BuiltInPositionPerViewNV:              return "PositionPerViewNV";
-        case BuiltInViewportMaskPerViewNV:          return "ViewportMaskPerViewNV";
-        case BuiltInBaryCoordNV:                    return "BaryCoordNV";
-        case BuiltInBaryCoordNoPerspNV:             return "BaryCoordNoPerspNV";
-        case BuiltInTaskCountNV:                    return "TaskCountNV";
-        case BuiltInPrimitiveCountNV:               return "PrimitiveCountNV";
-        case BuiltInPrimitiveIndicesNV:             return "PrimitiveIndicesNV";
-        case BuiltInClipDistancePerViewNV:          return "ClipDistancePerViewNV";
-        case BuiltInCullDistancePerViewNV:          return "CullDistancePerViewNV";
-        case BuiltInLayerPerViewNV:                 return "LayerPerViewNV";
-        case BuiltInMeshViewCountNV:                return "MeshViewCountNV";
-        case BuiltInMeshViewIndicesNV:              return "MeshViewIndicesNV";
+        case (unsigned)BuiltIn::ViewportMaskNV:                 return "ViewportMaskNV";
+        case (unsigned)BuiltIn::SecondaryPositionNV:            return "SecondaryPositionNV";
+        case (unsigned)BuiltIn::SecondaryViewportMaskNV:        return "SecondaryViewportMaskNV";
+        case (unsigned)BuiltIn::PositionPerViewNV:              return "PositionPerViewNV";
+        case (unsigned)BuiltIn::ViewportMaskPerViewNV:          return "ViewportMaskPerViewNV";
+        case (unsigned)BuiltIn::BaryCoordNV:                    return "BaryCoordNV";
+        case (unsigned)BuiltIn::BaryCoordNoPerspNV:             return "BaryCoordNoPerspNV";
+        case (unsigned)BuiltIn::TaskCountNV:                    return "TaskCountNV";
+        case (unsigned)BuiltIn::PrimitiveCountNV:               return "PrimitiveCountNV";
+        case (unsigned)BuiltIn::PrimitiveIndicesNV:             return "PrimitiveIndicesNV";
+        case (unsigned)BuiltIn::ClipDistancePerViewNV:          return "ClipDistancePerViewNV";
+        case (unsigned)BuiltIn::CullDistancePerViewNV:          return "CullDistancePerViewNV";
+        case (unsigned)BuiltIn::LayerPerViewNV:                 return "LayerPerViewNV";
+        case (unsigned)BuiltIn::MeshViewCountNV:                return "MeshViewCountNV";
+        case (unsigned)BuiltIn::MeshViewIndicesNV:              return "MeshViewIndicesNV";
 
         // NV Capabilities
-        case CapabilityGeometryShaderPassthroughNV: return "GeometryShaderPassthroughNV";
-        case CapabilityShaderViewportMaskNV:        return "ShaderViewportMaskNV";
-        case CapabilityShaderStereoViewNV:          return "ShaderStereoViewNV";
-        case CapabilityPerViewAttributesNV:         return "PerViewAttributesNV";
-        case CapabilityFragmentBarycentricNV:       return "FragmentBarycentricNV";
-        case CapabilityMeshShadingNV:               return "MeshShadingNV";
-        case CapabilityImageFootprintNV:            return "ImageFootprintNV";
-        case CapabilitySampleMaskOverrideCoverageNV:return "SampleMaskOverrideCoverageNV";
+        case (unsigned)Capability::GeometryShaderPassthroughNV: return "GeometryShaderPassthroughNV";
+        case (unsigned)Capability::ShaderViewportMaskNV:        return "ShaderViewportMaskNV";
+        case (unsigned)Capability::ShaderStereoViewNV:          return "ShaderStereoViewNV";
+        case (unsigned)Capability::PerViewAttributesNV:         return "PerViewAttributesNV";
+        case (unsigned)Capability::FragmentBarycentricNV:       return "FragmentBarycentricNV";
+        case (unsigned)Capability::MeshShadingNV:               return "MeshShadingNV";
+        case (unsigned)Capability::ImageFootprintNV:            return "ImageFootprintNV";
+        case (unsigned)Capability::SampleMaskOverrideCoverageNV:return "SampleMaskOverrideCoverageNV";
 
         // NV Decorations
-        case DecorationOverrideCoverageNV:          return "OverrideCoverageNV";
-        case DecorationPassthroughNV:               return "PassthroughNV";
-        case DecorationViewportRelativeNV:          return "ViewportRelativeNV";
-        case DecorationSecondaryViewportRelativeNV: return "SecondaryViewportRelativeNV";
-        case DecorationPerVertexNV:                 return "PerVertexNV";
-        case DecorationPerPrimitiveNV:              return "PerPrimitiveNV";
-        case DecorationPerViewNV:                   return "PerViewNV";
-        case DecorationPerTaskNV:                   return "PerTaskNV";
+        case (unsigned)Decoration::OverrideCoverageNV:          return "OverrideCoverageNV";
+        case (unsigned)Decoration::PassthroughNV:               return "PassthroughNV";
+        case (unsigned)Decoration::ViewportRelativeNV:          return "ViewportRelativeNV";
+        case (unsigned)Decoration::SecondaryViewportRelativeNV: return "SecondaryViewportRelativeNV";
+        case (unsigned)Decoration::PerVertexNV:                 return "PerVertexNV";
+        case (unsigned)Decoration::PerPrimitiveNV:              return "PerPrimitiveNV";
+        case (unsigned)Decoration::PerViewNV:                   return "PerViewNV";
+        case (unsigned)Decoration::PerTaskNV:                   return "PerTaskNV";
 
         default:                                    return "Bad";
         }
     }
+    return "Bad";
+}
+
+static const char* NonSemanticShaderDebugInfo100GetDebugNames(unsigned entrypoint)
+{
+    switch (entrypoint) {
+        case NonSemanticShaderDebugInfo100DebugInfoNone:                        return "DebugInfoNone";
+        case NonSemanticShaderDebugInfo100DebugCompilationUnit:                 return "DebugCompilationUnit";
+        case NonSemanticShaderDebugInfo100DebugTypeBasic:                       return "DebugTypeBasic";
+        case NonSemanticShaderDebugInfo100DebugTypePointer:                     return "DebugTypePointer";
+        case NonSemanticShaderDebugInfo100DebugTypeQualifier:                   return "DebugTypeQualifier";
+        case NonSemanticShaderDebugInfo100DebugTypeArray:                       return "DebugTypeArray";
+        case NonSemanticShaderDebugInfo100DebugTypeVector:                      return "DebugTypeVector";
+        case NonSemanticShaderDebugInfo100DebugTypedef:                         return "DebugTypedef";
+        case NonSemanticShaderDebugInfo100DebugTypeFunction:                    return "DebugTypeFunction";
+        case NonSemanticShaderDebugInfo100DebugTypeEnum:                        return "DebugTypeEnum";
+        case NonSemanticShaderDebugInfo100DebugTypeComposite:                   return "DebugTypeComposite";
+        case NonSemanticShaderDebugInfo100DebugTypeMember:                      return "DebugTypeMember";
+        case NonSemanticShaderDebugInfo100DebugTypeInheritance:                 return "DebugTypeInheritance";
+        case NonSemanticShaderDebugInfo100DebugTypePtrToMember:                 return "DebugTypePtrToMember";
+        case NonSemanticShaderDebugInfo100DebugTypeTemplate:                    return "DebugTypeTemplate";
+        case NonSemanticShaderDebugInfo100DebugTypeTemplateParameter:           return "DebugTypeTemplateParameter";
+        case NonSemanticShaderDebugInfo100DebugTypeTemplateTemplateParameter:   return "DebugTypeTemplateTemplateParameter";
+        case NonSemanticShaderDebugInfo100DebugTypeTemplateParameterPack:       return "DebugTypeTemplateParameterPack";
+        case NonSemanticShaderDebugInfo100DebugGlobalVariable:                  return "DebugGlobalVariable";
+        case NonSemanticShaderDebugInfo100DebugFunctionDeclaration:             return "DebugFunctionDeclaration";
+        case NonSemanticShaderDebugInfo100DebugFunction:                        return "DebugFunction";
+        case NonSemanticShaderDebugInfo100DebugLexicalBlock:                    return "DebugLexicalBlock";
+        case NonSemanticShaderDebugInfo100DebugLexicalBlockDiscriminator:       return "DebugLexicalBlockDiscriminator";
+        case NonSemanticShaderDebugInfo100DebugScope:                           return "DebugScope";
+        case NonSemanticShaderDebugInfo100DebugNoScope:                         return "DebugNoScope";
+        case NonSemanticShaderDebugInfo100DebugInlinedAt:                       return "DebugInlinedAt";
+        case NonSemanticShaderDebugInfo100DebugLocalVariable:                   return "DebugLocalVariable";
+        case NonSemanticShaderDebugInfo100DebugInlinedVariable:                 return "DebugInlinedVariable";
+        case NonSemanticShaderDebugInfo100DebugDeclare:                         return "DebugDeclare";
+        case NonSemanticShaderDebugInfo100DebugValue:                           return "DebugValue";
+        case NonSemanticShaderDebugInfo100DebugOperation:                       return "DebugOperation";
+        case NonSemanticShaderDebugInfo100DebugExpression:                      return "DebugExpression";
+        case NonSemanticShaderDebugInfo100DebugMacroDef:                        return "DebugMacroDef";
+        case NonSemanticShaderDebugInfo100DebugMacroUndef:                      return "DebugMacroUndef";
+        case NonSemanticShaderDebugInfo100DebugImportedEntity:                  return "DebugImportedEntity";
+        case NonSemanticShaderDebugInfo100DebugSource:                          return "DebugSource";
+        case NonSemanticShaderDebugInfo100DebugFunctionDefinition:              return "DebugFunctionDefinition";
+        case NonSemanticShaderDebugInfo100DebugSourceContinued:                 return "DebugSourceContinued";
+        case NonSemanticShaderDebugInfo100DebugLine:                            return "DebugLine";
+        case NonSemanticShaderDebugInfo100DebugNoLine:                          return "DebugNoLine";
+        case NonSemanticShaderDebugInfo100DebugBuildIdentifier:                 return "DebugBuildIdentifier";
+        case NonSemanticShaderDebugInfo100DebugStoragePath:                     return "DebugStoragePath";
+        case NonSemanticShaderDebugInfo100DebugEntryPoint:                      return "DebugEntryPoint";
+        case NonSemanticShaderDebugInfo100DebugTypeMatrix:                      return "DebugTypeMatrix";
+        default:                                                                return "Bad";
+    }
+
     return "Bad";
 }
 
@@ -740,4 +872,4 @@ void Disassemble(std::ostream& out, const std::vector<unsigned int>& stream)
     SpirvStream.processInstructions();
 }
 
-}; // end namespace spv
+} // end namespace spv

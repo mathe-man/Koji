@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.13)
 project(Koji LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 
-
+# Set variables for this project
 set(KOJI_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(KOJI_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(KOJI_RESOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 
-# Add include folders
 
 # glfw build settings
 set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "Disable Wayland backend")

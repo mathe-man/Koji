@@ -1,6 +1,6 @@
 /*
- * Copyright 2010-2020 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
 #ifndef BX_RNG_H_HEADER_GUARD
@@ -57,15 +57,15 @@ namespace bx
 
 	/// Generate random point on unit circle.
 	template <typename Rng>
-	bx::Vec3 randUnitCircle(Rng* _rng);
+	Vec3 randUnitCircle(Rng* _rng);
 
 	/// Generate random point on unit sphere.
 	template <typename Rng>
-	bx::Vec3 randUnitSphere(Rng* _rng);
+	Vec3 randUnitSphere(Rng* _rng);
 
 	/// Generate random point on unit hemisphere.
 	template <typename Ty>
-	bx::Vec3 randUnitHemisphere(Ty* _rng, const bx::Vec3& _normal);
+	Vec3 randUnitHemisphere(Ty* _rng, const Vec3& _normal);
 
 	/// Sampling with Hammersley and Halton Points.
 	void generateSphereHammersley(void* _data, uint32_t _stride, uint32_t _num, float _scale = 1.0f);

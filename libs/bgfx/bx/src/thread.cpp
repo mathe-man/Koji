@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2020 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
-#include "bx_p.h"
+#include <bx/os.h>
 #include <bx/thread.h>
 
 #if BX_CONFIG_SUPPORTS_THREADING
@@ -13,33 +13,19 @@
 #endif
 
 #if BX_CRT_NONE
-#	include "crt0.h"
-#elif  BX_PLATFORM_ANDROID \
-	|| BX_PLATFORM_BSD     \
-	|| BX_PLATFORM_HAIKU   \
-	|| BX_PLATFORM_LINUX   \
-	|| BX_PLATFORM_IOS     \
-	|| BX_PLATFORM_OSX     \
-	|| BX_PLATFORM_PS4     \
-	|| BX_PLATFORM_RPI
+#	include <bx/crt0.h>
+#elif  BX_PLATFORM_POSIX
 #	include <pthread.h>
-#	if defined(__FreeBSD__)
-#		include <pthread_np.h>
-#	endif
-#	if BX_PLATFORM_LINUX && (BX_CRT_GLIBC < 21200)
-#		include <sys/prctl.h>
-#	endif // BX_PLATFORM_
 #elif  BX_PLATFORM_WINDOWS \
 	|| BX_PLATFORM_WINRT   \
-	|| BX_PLATFORM_XBOXONE
+	|| BX_PLATFORM_XBOXONE \
+	|| BX_PLATFORM_WINRT
+#	ifndef WIN32_LEAN_AND_MEAN
+#		define WIN32_LEAN_AND_MEAN
+#	endif // WIN32_LEAN_AND_MEAN
 #	include <windows.h>
 #	include <limits.h>
 #	include <errno.h>
-#	if BX_PLATFORM_WINRT
-using namespace Platform;
-using namespace Windows::Foundation;
-using namespace Windows::System::Threading;
-#	endif // BX_PLATFORM_WINRT
 #endif // BX_PLATFORM_
 
 namespace bx
@@ -87,13 +73,8 @@ namespace bx
 	void* ThreadInternal::threadFunc(void* _arg)
 	{
 		Thread* thread = (Thread*)_arg;
-		union
-		{
-			void* ptr;
-			int32_t i;
-		} cast;
-		cast.i = thread->entry();
-		return cast.ptr;
+		intptr_t result = thread->entry();
+		return bitCast<void*>(result);
 	}
 #endif // BX_PLATFORM_
 
@@ -105,11 +86,11 @@ namespace bx
 		, m_exitCode(kExitSuccess)
 		, m_running(false)
 	{
-		BX_STATIC_ASSERT(sizeof(ThreadInternal) <= sizeof(m_internal) );
+		static_assert(sizeof(ThreadInternal) <= sizeof(m_internal) );
 
 		ThreadInternal* ti = (ThreadInternal*)m_internal;
 #if BX_CRT_NONE
-		ti->m_handle = INT32_MIN;
+		ti->m_handle = -1;
 #elif  BX_PLATFORM_WINDOWS \
 	|| BX_PLATFORM_WINRT   \
 	|| BX_PLATFORM_XBOXONE
@@ -136,16 +117,27 @@ namespace bx
 		m_userData = _userData;
 		m_stackSize = _stackSize;
 
+		if (NULL != _name)
+		{
+			BX_WARN(strLen(_name) < int32_t(BX_COUNTOF(m_name) )-1, "Truncating thread name.");
+			strCopy(m_name, BX_COUNTOF(m_name), _name);
+		}
+		else
+		{
+			m_name[0] = '\0';
+		}
+
 		ThreadInternal* ti = (ThreadInternal*)m_internal;
 #if BX_CRT_NONE
 		ti->m_handle = crt0::threadCreate(&ti->threadFunc, _userData, m_stackSize, _name);
 
-		if (NULL == ti->m_handle)
+		if (-1 == ti->m_handle)
 		{
 			return false;
 		}
 #elif  BX_PLATFORM_WINDOWS \
-	|| BX_PLATFORM_XBOXONE
+	|| BX_PLATFORM_XBOXONE \
+	|| BX_PLATFORM_WINRT
 		ti->m_handle = ::CreateThread(NULL
 				, m_stackSize
 				, (LPTHREAD_START_ROUTINE)ti->threadFunc
@@ -157,23 +149,6 @@ namespace bx
 		{
 			return false;
 		}
-#elif BX_PLATFORM_WINRT
-		ti->m_handle = CreateEventEx(nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, EVENT_ALL_ACCESS);
-
-		if (NULL == ti->m_handle)
-		{
-			return false;
-		}
-
-		auto workItemHandler = ref new WorkItemHandler([=](IAsyncAction^)
-			{
-				m_exitCode = ti->threadFunc(this);
-				SetEvent(ti->m_handle);
-			}
-			, CallbackContext::Any
-			);
-
-		ThreadPool::RunAsync(workItemHandler, WorkItemPriority::Normal, WorkItemOptions::TimeSliced);
 #elif BX_PLATFORM_POSIX
 		int result;
 		BX_UNUSED(result);
@@ -210,11 +185,6 @@ namespace bx
 		m_running = true;
 		m_sem.wait();
 
-		if (NULL != _name)
-		{
-			setThreadName(_name);
-		}
-
 		return true;
 	}
 
@@ -234,13 +204,9 @@ namespace bx
 		CloseHandle(ti->m_handle);
 		ti->m_handle = INVALID_HANDLE_VALUE;
 #elif BX_PLATFORM_POSIX
-		union
-		{
-			void* ptr;
-			int32_t i;
-		} cast;
-		pthread_join(ti->m_handle, &cast.ptr);
-		m_exitCode = cast.i;
+		void* ptr;
+		pthread_join(ti->m_handle, &ptr);
+		m_exitCode = narrowCast<int32_t>(bitCast<intptr_t>(ptr) );
 		ti->m_handle = 0;
 #endif // BX_PLATFORM_
 
@@ -264,27 +230,23 @@ namespace bx
 #if BX_CRT_NONE
 		BX_UNUSED(_name);
 #elif  BX_PLATFORM_OSX \
-	|| BX_PLATFORM_IOS
+	|| BX_PLATFORM_IOS   \
+	|| BX_PLATFORM_VISIONOS
 		pthread_setname_np(_name);
-#elif (BX_CRT_GLIBC >= 21200) && ! BX_PLATFORM_HURD
+#elif BX_CRT_GLIBC
 		pthread_setname_np(ti->m_handle, _name);
 #elif BX_PLATFORM_LINUX
 		prctl(PR_SET_NAME,_name, 0, 0, 0);
-#elif BX_PLATFORM_BSD
-#	if defined(__NetBSD__)
-		pthread_setname_np(ti->m_handle, "%s", (void*)_name);
-#	else
-		pthread_set_name_np(ti->m_handle, _name);
-#	endif // defined(__NetBSD__)
 #elif BX_PLATFORM_WINDOWS
 		// Try to use the new thread naming API from Win10 Creators update onwards if we have it
 		typedef HRESULT (WINAPI *SetThreadDescriptionProc)(HANDLE, PCWSTR);
-		SetThreadDescriptionProc SetThreadDescription = (SetThreadDescriptionProc)(GetProcAddress(GetModuleHandleA("Kernel32.dll"), "SetThreadDescription"));
-		if (SetThreadDescription)
+		SetThreadDescriptionProc SetThreadDescription = dlsym<SetThreadDescriptionProc>((void*)GetModuleHandleA("Kernel32.dll"), "SetThreadDescription");
+
+		if (NULL != SetThreadDescription)
 		{
-			uint32_t length = (uint32_t)bx::strLen(_name)+1;
+			uint32_t length = (uint32_t)strLen(_name)+1;
 			uint32_t size = length*sizeof(wchar_t);
-			wchar_t* name = (wchar_t*)alloca(size);
+			wchar_t* name = (wchar_t*)BX_STACK_ALLOC(size);
 			mbstowcs(name, _name, size-2);
 			SetThreadDescription(ti->m_handle, name);
 		}
@@ -340,6 +302,7 @@ namespace bx
 #endif // BX_PLATFORM_WINDOWS
 
 		m_sem.post();
+		setThreadName(m_name);
 		int32_t result = m_fn(this, m_userData);
 		return result;
 	}
@@ -357,7 +320,7 @@ namespace bx
 #if BX_CRT_NONE
 	TlsData::TlsData()
 	{
-		BX_STATIC_ASSERT(sizeof(TlsDataInternal) <= sizeof(m_internal) );
+		static_assert(sizeof(TlsDataInternal) <= sizeof(m_internal) );
 
 		TlsDataInternal* ti = (TlsDataInternal*)m_internal;
 		BX_UNUSED(ti);
@@ -384,7 +347,7 @@ namespace bx
 #elif BX_PLATFORM_WINDOWS
 	TlsData::TlsData()
 	{
-		BX_STATIC_ASSERT(sizeof(TlsDataInternal) <= sizeof(m_internal) );
+		static_assert(sizeof(TlsDataInternal) <= sizeof(m_internal) );
 
 		TlsDataInternal* ti = (TlsDataInternal*)m_internal;
 		ti->m_id = TlsAlloc();
@@ -414,7 +377,7 @@ namespace bx
 
 	TlsData::TlsData()
 	{
-		BX_STATIC_ASSERT(sizeof(TlsDataInternal) <= sizeof(m_internal) );
+		static_assert(sizeof(TlsDataInternal) <= sizeof(m_internal) );
 
 		TlsDataInternal* ti = (TlsDataInternal*)m_internal;
 		int result = pthread_key_create(&ti->m_id, NULL);

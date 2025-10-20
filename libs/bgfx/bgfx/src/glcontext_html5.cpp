@@ -1,6 +1,6 @@
 /*
- * Copyright 2011-2020 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
 #include "bgfx_p.h"
@@ -28,11 +28,12 @@ namespace bgfx { namespace gl
 
 	struct SwapChainGL
 	{
-		SwapChainGL(int _context, const char* _canvas)
+		SwapChainGL(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE _context, const char* _canvas)
 			: m_context(_context)
 		{
-			m_canvas = (char*)BX_ALLOC(g_allocator, strlen(_canvas) + 1);
-			strcpy(m_canvas, _canvas);
+			size_t length = bx::strLen(_canvas) + 1;
+			m_canvas = (char*)bx::alloc(g_allocator, length);
+			bx::strCopy(m_canvas, length, _canvas);
 
 			makeCurrent();
 			GL_CHECK(glClearColor(0.0f, 0.0f, 0.0f, 0.0f) );
@@ -45,7 +46,7 @@ namespace bgfx { namespace gl
 		~SwapChainGL()
 		{
 			EMSCRIPTEN_CHECK(emscripten_webgl_destroy_context(m_context) );
-			BX_FREE(g_allocator, m_canvas);
+			bx::free(g_allocator, m_canvas);
 		}
 
 		void makeCurrent()
@@ -59,11 +60,11 @@ namespace bgfx { namespace gl
 			// to the browser.
 		}
 
-		int m_context;
+		EMSCRIPTEN_WEBGL_CONTEXT_HANDLE m_context;
 		char* m_canvas;
 	};
 
-	void GlContext::create(uint32_t _width, uint32_t _height)
+	void GlContext::create(uint32_t _width, uint32_t _height, uint32_t /*_flags*/)
 	{
 		// assert?
 		if (m_primary != NULL)
@@ -71,7 +72,23 @@ namespace bgfx { namespace gl
 
 		const char* canvas = (const char*) g_platformData.nwh;
 
-		m_primary = createSwapChain((void*)canvas);
+		EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context = bx::narrowCast<EMSCRIPTEN_WEBGL_CONTEXT_HANDLE>((uintptr_t) g_platformData.context);
+		if (context > 0)
+		{
+			if (emscripten_webgl_get_context_attributes(context, &s_attrs) >= 0)
+			{
+				import(s_attrs.majorVersion);
+				m_primary = BX_NEW(g_allocator, SwapChainGL)(context, canvas);
+			}
+			else
+			{
+				BX_TRACE("Invalid WebGL context. (Canvas handle: '%s', context handle: %d)", canvas, context);
+			}
+		}
+		else
+		{
+			m_primary = createSwapChain((void*)canvas, (int)_width, (int)_height);
+		}
 
 		if (0 != _width
 		&&  0 != _height)
@@ -91,7 +108,7 @@ namespace bgfx { namespace gl
 				m_current = NULL;
 			}
 
-			BX_DELETE(g_allocator, m_primary);
+			bx::deleteObject(g_allocator, m_primary);
 			m_primary = NULL;
 		}
 	}
@@ -106,22 +123,23 @@ namespace bgfx { namespace gl
 		EMSCRIPTEN_CHECK(emscripten_set_canvas_element_size(m_primary->m_canvas, (int) _width, (int) _height) );
 	}
 
-	SwapChainGL* GlContext::createSwapChain(void* _nwh)
+	SwapChainGL* GlContext::createSwapChain(void* _nwh, int _width, int _height)
 	{
 		emscripten_webgl_init_context_attributes(&s_attrs);
+		BX_UNUSED(_width, _height);
 
 		// Work around bug https://bugs.chromium.org/p/chromium/issues/detail?id=1045643 in Chrome
 		// by having alpha always enabled.
-		s_attrs.alpha = true;
-		s_attrs.premultipliedAlpha = false;
-		s_attrs.depth = true;
-		s_attrs.stencil = true;
+		s_attrs.alpha                     = true;
+		s_attrs.premultipliedAlpha        = false;
+		s_attrs.depth                     = true;
+		s_attrs.stencil                   = true;
 		s_attrs.enableExtensionsByDefault = true;
-		s_attrs.antialias = false;
+		s_attrs.antialias                 = false;
 
 		s_attrs.minorVersion = 0;
 		const char* canvas = (const char*) _nwh;
-		int error = 0;
+		int32_t error = 0;
 
 		for (int version = 2; version >= 1; --version)
 		{
@@ -134,14 +152,17 @@ namespace bgfx { namespace gl
 
 				SwapChainGL* swapChain = BX_NEW(g_allocator, SwapChainGL)(context, canvas);
 
-				import(1);
+				import(version);
 
 				return swapChain;
 			}
-			error = (int) context;
+
+			error = (int32_t)context;
 		}
 
 		BX_TRACE("Failed to create WebGL context. (Canvas handle: '%s', last attempt error %d)", canvas, error);
+		BX_UNUSED(error);
+
 		return NULL;
 	}
 
@@ -152,7 +173,7 @@ namespace bgfx { namespace gl
 
 	void GlContext::destroySwapChain(SwapChainGL* _swapChain)
 	{
-		BX_DELETE(g_allocator, _swapChain);
+		bx::deleteObject(g_allocator, _swapChain);
 	}
 
 	void GlContext::swap(SwapChainGL* /* _swapChain */)
@@ -179,22 +200,39 @@ namespace bgfx { namespace gl
 		}
 	}
 
-	void GlContext::import(int webGLVersion)
+	template<typename Fn>
+	static Fn getProcAddress(int _version, const char* _name)
+	{
+		Fn func = reinterpret_cast<Fn>(emscripten_webgl1_get_proc_address(_name) );
+		if (NULL == func && _version >= 2)
+		{
+			func = reinterpret_cast<Fn>(emscripten_webgl2_get_proc_address(_name) );
+		}
+
+		return func;
+	}
+
+	void GlContext::import(int _webGLVersion)
 	{
 		BX_TRACE("Import:");
-#		define GL_EXTENSION(_optional, _proto, _func, _import)                                                                                                   \
-			{                                                                                                                                                    \
-				if (NULL == _func)                                                                                                                               \
-				{                                                                                                                                                \
-					_func = (_proto)emscripten_webgl1_get_proc_address(#_import);                                                                                \
-					if (!_func && webGLVersion >= 2)                                                                                                             \
-					    _func = (_proto)emscripten_webgl2_get_proc_address(#_import);                                                                            \
-					BX_TRACE("\t%p " #_func " (" #_import ")", _func);                                                                                           \
-					BGFX_FATAL(_optional || NULL != _func, Fatal::UnableToInitialize, "Failed to create WebGL/OpenGLES context. GetProcAddress(\"%s\")", #_import); \
-				}                                                                                                                                                \
-			}
+
+#	define GL_EXTENSION(_optional, _proto, _func, _import)                          \
+	{                                                                               \
+		if (NULL == _func)                                                          \
+		{                                                                           \
+			_func = getProcAddress<_proto>(_webGLVersion, #_import);                \
+			BX_TRACE("\t%p " #_func " (" #_import ")", _func);                      \
+			BGFX_FATAL(_optional || NULL != _func, Fatal::UnableToInitialize        \
+				, "Failed to create WebGL/OpenGLES context. GetProcAddress(\"%s\")" \
+				, #_import                                                          \
+				);                                                                  \
+		}                                                                           \
+	}
 
 #	include "glimports.h"
+
+#	undef GL_EXTENSION
+
 	}
 
 } /* namespace gl */ } // namespace bgfx

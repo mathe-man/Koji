@@ -1,9 +1,8 @@
 /*
- * Copyright 2010-2020 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
-#include "bx_p.h"
 #include <bx/easing.h>
 
 namespace bx
@@ -54,7 +53,7 @@ namespace bx
 		easeInOutBounce,
 		easeOutInBounce,
 	};
-	BX_STATIC_ASSERT(BX_COUNTOF(s_easeFunc) == Easing::Count);
+	static_assert(BX_COUNTOF(s_easeFunc) == Easing::Count);
 
 	EaseFn getEaseFunc(Easing::Enum _enum)
 	{

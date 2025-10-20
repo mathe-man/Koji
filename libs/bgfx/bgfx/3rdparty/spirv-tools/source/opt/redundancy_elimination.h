@@ -41,13 +41,12 @@ class RedundancyEliminationPass : public LocalRedundancyEliminationPass {
   // in the function containing |bb|.
   //
   // |value_to_ids| is a map from value number to ids.  If {vn, id} is in
-  // |value_to_ids| then vn is the value number of id, and the defintion of id
+  // |value_to_ids| then vn is the value number of id, and the definition of id
   // dominates |bb|.
   //
   // Returns true if at least one instruction is deleted.
   bool EliminateRedundanciesFrom(DominatorTreeNode* bb,
-                                 const ValueNumberTable& vnTable,
-                                 std::map<uint32_t, uint32_t> value_to_ids);
+                                 const ValueNumberTable& vnTable);
 };
 
 }  // namespace opt

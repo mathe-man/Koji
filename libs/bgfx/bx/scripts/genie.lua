@@ -1,6 +1,6 @@
 --
--- Copyright 2010-2020 Branimir Karadzic. All rights reserved.
--- License: https://github.com/bkaradzic/bx#license-bsd-2-clause
+-- Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+-- License: https://github.com/bkaradzic/bx/blob/master/LICENSE
 --
 
 newoption {
@@ -39,30 +39,35 @@ end
 
 dofile "bx.lua"
 dofile "bin2c.lua"
-dofile "lemon.lua"
 
 project "bx.test"
 	kind "ConsoleApp"
 
 	debugdir (path.join(BX_DIR, "tests"))
 
+	flags {
+--		"FatalWarnings",
+	}
+
 	removeflags {
 		"NoExceptions",
 	}
 
 	includedirs {
-		path.join(BX_DIR, "include"),
 		BX_THIRD_PARTY_DIR,
 	}
 
 	files {
+		path.join(BX_DIR, "3rdparty/catch/catch_amalgamated.cpp"),
 		path.join(BX_DIR, "tests/*_test.cpp"),
 		path.join(BX_DIR, "tests/*.h"),
 		path.join(BX_DIR, "tests/dbg.*"),
 	}
 
-	links {
-		"bx",
+	using_bx()
+
+	defines {
+		"CATCH_AMALGAMATED_CUSTOM_MAIN",
 	}
 
 	configuration { "vs* or mingw*" }
@@ -81,9 +86,24 @@ project "bx.test"
 			"pthread",
 		}
 
-	configuration { "osx" }
+	configuration { "ios*" }
+		linkoptions {
+			"-framework CoreFoundation",
+			"-framework Foundation",
+		}
+
+	configuration { "osx*" }
 		links {
 			"Cocoa.framework",
+		}
+
+	configuration { "wasm" }
+		buildoptions {
+			"-fwasm-exceptions",
+		}
+		linkoptions {
+			"-fwasm-exceptions",
+			"-s STACK_SIZE=262144",
 		}
 
 	configuration {}
@@ -106,9 +126,7 @@ project "bx.bench"
 		path.join(BX_DIR, "tests/dbg.*"),
 	}
 
-	links {
-		"bx",
-	}
+	using_bx()
 
 	configuration { "vs* or mingw*" }
 		links {
@@ -126,7 +144,7 @@ project "bx.bench"
 			"pthread",
 		}
 
-	configuration { "osx" }
+	configuration { "osx*" }
 		links {
 			"Cocoa.framework",
 		}

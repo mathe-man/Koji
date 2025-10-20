@@ -1,6 +1,6 @@
 --
--- Copyright 2010-2020 Branimir Karadzic. All rights reserved.
--- License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
+-- Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+-- License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
 --
 
 group "tools/shaderc"
@@ -29,6 +29,8 @@ project "spirv-opt"
 		path.join(SPIRV_TOOLS, "source/opt/**.h"),
 		path.join(SPIRV_TOOLS, "source/reduce/**.cpp"),
 		path.join(SPIRV_TOOLS, "source/reduce/**.h"),
+		path.join(SPIRV_TOOLS, "source/val/**.cpp"),
+		path.join(SPIRV_TOOLS, "source/val/**.h"),
 
 		-- libspirv
 		path.join(SPIRV_TOOLS, "source/assembly_grammar.cpp"),
@@ -41,8 +43,6 @@ project "spirv-opt"
 		path.join(SPIRV_TOOLS, "source/disassemble.cpp"),
 		path.join(SPIRV_TOOLS, "source/disassemble.h"),
 		path.join(SPIRV_TOOLS, "source/enum_set.h"),
-		path.join(SPIRV_TOOLS, "source/enum_string_mapping.cpp"),
-		path.join(SPIRV_TOOLS, "source/enum_string_mapping.h"),
 		path.join(SPIRV_TOOLS, "source/ext_inst.cpp"),
 		path.join(SPIRV_TOOLS, "source/ext_inst.h"),
 		path.join(SPIRV_TOOLS, "source/extensions.cpp"),
@@ -76,10 +76,14 @@ project "spirv-opt"
 		path.join(SPIRV_TOOLS, "source/spirv_validator_options.h"),
 		path.join(SPIRV_TOOLS, "source/table.cpp"),
 		path.join(SPIRV_TOOLS, "source/table.h"),
+		path.join(SPIRV_TOOLS, "source/table2.cpp"),
+		path.join(SPIRV_TOOLS, "source/table2.h"),
 		path.join(SPIRV_TOOLS, "source/text.cpp"),
 		path.join(SPIRV_TOOLS, "source/text.h"),
 		path.join(SPIRV_TOOLS, "source/text_handler.cpp"),
 		path.join(SPIRV_TOOLS, "source/text_handler.h"),
+		path.join(SPIRV_TOOLS, "source/to_string.cpp"),
+		path.join(SPIRV_TOOLS, "source/to_string.h"),
 		path.join(SPIRV_TOOLS, "source/util/bit_vector.cpp"),
 		path.join(SPIRV_TOOLS, "source/util/bit_vector.h"),
 		path.join(SPIRV_TOOLS, "source/util/bitutils.h"),
@@ -89,59 +93,18 @@ project "spirv-opt"
 		path.join(SPIRV_TOOLS, "source/util/string_utils.cpp"),
 		path.join(SPIRV_TOOLS, "source/util/string_utils.h"),
 		path.join(SPIRV_TOOLS, "source/util/timer.h"),
-		path.join(SPIRV_TOOLS, "source/val/basic_block.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/construct.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/decoration.h"),
-		path.join(SPIRV_TOOLS, "source/val/function.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/instruction.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate.h"),
-		path.join(SPIRV_TOOLS, "source/val/validate_adjacency.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_annotation.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_arithmetics.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_atomics.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_barriers.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_bitwise.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_builtins.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_capability.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_cfg.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_composites.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_constants.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_conversion.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_debug.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_decorations.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_derivatives.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_execution_limitations.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_extensions.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_function.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_id.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_image.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_instruction.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_interfaces.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_layout.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_literals.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_logicals.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_memory.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_memory_semantics.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_misc.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_mode_setting.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_non_uniform.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_primitives.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_scopes.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_small_type_uses.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validate_type.cpp"),
-		path.join(SPIRV_TOOLS, "source/val/validation_state.cpp"),
 	}
 
 	configuration { "vs*" }
 		buildoptions {
 			"/wd4127", -- warning C4127: conditional expression is constant
+			"/wd4267", -- warning C4267: 'argument': conversion from '' to '', possible loss of data
 			"/wd4389", -- warning C4389: '==': signed/unsigned mismatch
 			"/wd4702", -- warning C4702: unreachable code
 			"/wd4706", -- warning C4706: assignment within conditional expression
 		}
 
-	configuration { "mingw* or linux or osx" }
+	configuration { "mingw* or linux* or osx*" }
 		buildoptions {
 			"-Wno-switch",
 		}
@@ -197,6 +160,11 @@ project "spirv-cross"
 			"/wd4715", -- warning C4715: '': not all control paths return a value
 		}
 
+	configuration { "mingw* or linux* or osx*" }
+		buildoptions {
+			"-Wno-type-limits",
+		}
+
 	configuration {}
 
 project "glslang"
@@ -209,6 +177,7 @@ project "glslang"
 
 	includedirs {
 		GLSLANG,
+		path.join(GLSLANG, ".."),
 		path.join(SPIRV_TOOLS, "include"),
 		path.join(SPIRV_TOOLS, "source"),
 	}
@@ -225,11 +194,6 @@ project "glslang"
 
 		path.join(GLSLANG, "OGLCompilersDLL/**.cpp"),
 		path.join(GLSLANG, "OGLCompilersDLL/**.h"),
-	}
-
-	removefiles {
-		path.join(GLSLANG, "glslang/OSDependent/Unix/main.cpp"),
-		path.join(GLSLANG, "glslang/OSDependent/Windows/main.cpp"),
 	}
 
 	configuration { "windows" }
@@ -262,8 +226,15 @@ project "glslang"
 			"/wd4838", -- warning C4838: conversion from 'spv::GroupOperation' to 'unsigned int' requires a narrowing conversion
 		}
 
-	configuration { "mingw* or linux or osx" }
+	configuration { "mingw-gcc or linux-gcc" }
 		buildoptions {
+			"-Wno-logical-op",
+			"-Wno-maybe-uninitialized",
+		}
+
+	configuration { "mingw* or linux* or osx*" }
+		buildoptions {
+			"-fno-strict-aliasing", -- glslang has bugs if strict aliasing is used.
 			"-Wno-ignored-qualifiers",
 			"-Wno-implicit-fallthrough",
 			"-Wno-missing-field-initializers",
@@ -279,7 +250,7 @@ project "glslang"
 			"-Wno-unused-variable",
 		}
 
-	configuration { "osx" }
+	configuration { "osx*" }
 		buildoptions {
 			"-Wno-c++11-extensions",
 			"-Wno-unused-const-variable",
@@ -289,11 +260,6 @@ project "glslang"
 	configuration { "linux-gcc-*" }
 		buildoptions {
 			"-Wno-unused-but-set-variable",
-		}
-
-	configuration { "mingw* or linux or osx" }
-		buildoptions {
-			"-fno-strict-aliasing", -- glslang has bugs if strict aliasing is used.
 		}
 
 	configuration {}
@@ -522,7 +488,7 @@ project "glsl-optimizer"
 			"/wd4996", -- warning C4996: 'strdup': The POSIX name for this item is deprecated. Instead, use the ISO C++ conformant name: _strdup.
 		}
 
-	configuration { "mingw* or linux or osx" }
+	configuration { "mingw* or linux* or osx*" }
 		buildoptions {
 			"-fno-strict-aliasing", -- glsl-optimizer has bugs if strict aliasing is used.
 
@@ -537,7 +503,7 @@ project "glsl-optimizer"
 			"-Wshadow", -- glsl-optimizer is full of -Wshadow warnings ignore it.
 		}
 
-	configuration { "osx" }
+	configuration { "osx*" }
 		buildoptions {
 			"-Wno-deprecated-register",
 		}
@@ -593,11 +559,9 @@ project "shaderc"
 	kind "ConsoleApp"
 
 	includedirs {
-		path.join(BX_DIR,   "include"),
 		path.join(BIMG_DIR, "include"),
 		path.join(BGFX_DIR, "include"),
 
-		path.join(BGFX_DIR, "3rdparty/webgpu/include"),
 		path.join(BGFX_DIR, "3rdparty/dxsdk/include"),
 
 		FCPP_DIR,
@@ -615,7 +579,6 @@ project "shaderc"
 	}
 
 	links {
-		"bx",
 		"fcpp",
 		"glslang",
 		"glsl-optimizer",
@@ -623,17 +586,19 @@ project "shaderc"
 		"spirv-cross",
 	}
 
+	using_bx()
+
 	files {
 		path.join(BGFX_DIR, "tools/shaderc/**.cpp"),
 		path.join(BGFX_DIR, "tools/shaderc/**.h"),
 		path.join(BGFX_DIR, "src/vertexlayout.**"),
-		path.join(BGFX_DIR, "src/shader_spirv.**"),
+		path.join(BGFX_DIR, "src/shader**"),
 	}
 
 	configuration { "mingw-*" }
 		targetextension ".exe"
 
-	configuration { "osx" }
+	configuration { "osx*" }
 		links {
 			"Cocoa.framework",
 		}
@@ -648,7 +613,7 @@ project "shaderc"
 			"psapi",
 		}
 
-	configuration { "osx or linux*" }
+	configuration { "osx* or linux*" }
 		links {
 			"pthread",
 		}

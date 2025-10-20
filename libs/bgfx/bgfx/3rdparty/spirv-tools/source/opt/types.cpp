@@ -1,4 +1,6 @@
 // Copyright (c) 2016 Google Inc.
+// Modifications Copyright (C) 2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,13 +23,14 @@
 #include <string>
 #include <unordered_set>
 
+#include "source/util/hash_combine.h"
 #include "source/util/make_unique.h"
-#include "spirv/unified1/spirv.h"
 
 namespace spvtools {
 namespace opt {
 namespace analysis {
 
+using spvtools::utils::hash_combine;
 using U32VecVec = std::vector<std::vector<uint32_t>>;
 
 namespace {
@@ -62,7 +65,7 @@ bool CompareTwoVectors(const U32VecVec a, const U32VecVec b) {
   return true;
 }
 
-}  // anonymous namespace
+}  // namespace
 
 std::string Type::GetDecorationStr() const {
   std::ostringstream oss;
@@ -83,13 +86,13 @@ bool Type::HasSameDecorations(const Type* that) const {
   return CompareTwoVectors(decorations_, that->decorations_);
 }
 
-bool Type::IsUniqueType(bool allowVariablePointers) const {
+bool Type::IsUniqueType() const {
   switch (kind_) {
     case kPointer:
-      return !allowVariablePointers;
     case kStruct:
     case kArray:
     case kRuntimeArray:
+    case kNodePayloadArrayAMDX:
       return false;
     default:
       return true;
@@ -128,7 +131,10 @@ std::unique_ptr<Type> Type::Clone() const {
     DeclareKindCase(NamedBarrier);
     DeclareKindCase(AccelerationStructureNV);
     DeclareKindCase(CooperativeMatrixNV);
-    DeclareKindCase(RayQueryProvisionalKHR);
+    DeclareKindCase(CooperativeMatrixKHR);
+    DeclareKindCase(CooperativeVectorNV);
+    DeclareKindCase(RayQueryKHR);
+    DeclareKindCase(HitObjectNV);
 #undef DeclareKindCase
     default:
       assert(false && "Unhandled type");
@@ -160,6 +166,7 @@ bool Type::operator==(const Type& other) const {
     DeclareKindCase(SampledImage);
     DeclareKindCase(Array);
     DeclareKindCase(RuntimeArray);
+    DeclareKindCase(NodePayloadArrayAMDX);
     DeclareKindCase(Struct);
     DeclareKindCase(Opaque);
     DeclareKindCase(Pointer);
@@ -174,7 +181,12 @@ bool Type::operator==(const Type& other) const {
     DeclareKindCase(NamedBarrier);
     DeclareKindCase(AccelerationStructureNV);
     DeclareKindCase(CooperativeMatrixNV);
-    DeclareKindCase(RayQueryProvisionalKHR);
+    DeclareKindCase(CooperativeMatrixKHR);
+    DeclareKindCase(CooperativeVectorNV);
+    DeclareKindCase(RayQueryKHR);
+    DeclareKindCase(HitObjectNV);
+    DeclareKindCase(TensorLayoutNV);
+    DeclareKindCase(TensorViewNV);
 #undef DeclareKindCase
     default:
       assert(false && "Unhandled type");
@@ -182,23 +194,26 @@ bool Type::operator==(const Type& other) const {
   }
 }
 
-void Type::GetHashWords(std::vector<uint32_t>* words,
-                        std::unordered_set<const Type*>* seen) const {
-  if (!seen->insert(this).second) {
-    return;
+size_t Type::ComputeHashValue(size_t hash, SeenTypes* seen) const {
+  // Linear search through a dense, cache coherent vector is faster than O(log
+  // n) search in a complex data structure (eg std::set) for the generally small
+  // number of nodes.  It also skips the overhead of an new/delete per Type
+  // (when inserting/removing from a set).
+  if (std::find(seen->begin(), seen->end(), this) != seen->end()) {
+    return hash;
   }
 
-  words->push_back(kind_);
+  seen->push_back(this);
+
+  hash = hash_combine(hash, uint32_t(kind_));
   for (const auto& d : decorations_) {
-    for (auto w : d) {
-      words->push_back(w);
-    }
+    hash = hash_combine(hash, d);
   }
 
   switch (kind_) {
-#define DeclareKindCase(type)                   \
-  case k##type:                                 \
-    As##type()->GetExtraHashWords(words, seen); \
+#define DeclareKindCase(type)                             \
+  case k##type:                                           \
+    hash = As##type()->ComputeExtraStateHash(hash, seen); \
     break
     DeclareKindCase(Void);
     DeclareKindCase(Bool);
@@ -211,6 +226,7 @@ void Type::GetHashWords(std::vector<uint32_t>* words,
     DeclareKindCase(SampledImage);
     DeclareKindCase(Array);
     DeclareKindCase(RuntimeArray);
+    DeclareKindCase(NodePayloadArrayAMDX);
     DeclareKindCase(Struct);
     DeclareKindCase(Opaque);
     DeclareKindCase(Pointer);
@@ -225,25 +241,54 @@ void Type::GetHashWords(std::vector<uint32_t>* words,
     DeclareKindCase(NamedBarrier);
     DeclareKindCase(AccelerationStructureNV);
     DeclareKindCase(CooperativeMatrixNV);
-    DeclareKindCase(RayQueryProvisionalKHR);
+    DeclareKindCase(CooperativeMatrixKHR);
+    DeclareKindCase(CooperativeVectorNV);
+    DeclareKindCase(RayQueryKHR);
+    DeclareKindCase(HitObjectNV);
+    DeclareKindCase(TensorLayoutNV);
+    DeclareKindCase(TensorViewNV);
 #undef DeclareKindCase
     default:
       assert(false && "Unhandled type");
       break;
   }
 
-  seen->erase(this);
+  seen->pop_back();
+  return hash;
 }
 
 size_t Type::HashValue() const {
-  std::u32string h;
-  std::vector<uint32_t> words;
-  GetHashWords(&words);
-  for (auto w : words) {
-    h.push_back(w);
-  }
+  SeenTypes seen;
+  return ComputeHashValue(0, &seen);
+}
 
-  return std::hash<std::u32string>()(h);
+uint64_t Type::NumberOfComponents() const {
+  switch (kind()) {
+    case kVector:
+      return AsVector()->element_count();
+    case kMatrix:
+      return AsMatrix()->element_count();
+    case kArray: {
+      Array::LengthInfo length_info = AsArray()->length_info();
+      if (length_info.words[0] != Array::LengthInfo::kConstant) {
+        return UINT64_MAX;
+      }
+      assert(length_info.words.size() <= 3 &&
+             "The size of the array could not fit size_t.");
+      uint64_t length = 0;
+      length |= length_info.words[1];
+      if (length_info.words.size() > 2) {
+        length |= static_cast<uint64_t>(length_info.words[2]) << 32;
+      }
+      return length;
+    }
+    case kRuntimeArray:
+      return UINT64_MAX;
+    case kStruct:
+      return AsStruct()->element_types().size();
+    default:
+      return 0;
+  }
 }
 
 bool Integer::IsSameImpl(const Type* that, IsSameCache*) const {
@@ -258,26 +303,40 @@ std::string Integer::str() const {
   return oss.str();
 }
 
-void Integer::GetExtraHashWords(std::vector<uint32_t>* words,
-                                std::unordered_set<const Type*>*) const {
-  words->push_back(width_);
-  words->push_back(signed_);
+size_t Integer::ComputeExtraStateHash(size_t hash, SeenTypes*) const {
+  return hash_combine(hash, width_, signed_);
 }
 
 bool Float::IsSameImpl(const Type* that, IsSameCache*) const {
   const Float* ft = that->AsFloat();
-  return ft && width_ == ft->width_ && HasSameDecorations(that);
+  return ft && width_ == ft->width_ && encoding_ == ft->encoding_ &&
+         HasSameDecorations(that);
 }
 
 std::string Float::str() const {
   std::ostringstream oss;
-  oss << "float" << width_;
+  switch (encoding_) {
+    case spv::FPEncoding::BFloat16KHR:
+      assert(width_ == 16);
+      oss << "bfloat16";
+      break;
+    case spv::FPEncoding::Float8E4M3EXT:
+      assert(width_ == 8);
+      oss << "fp8e4m3";
+      break;
+    case spv::FPEncoding::Float8E5M2EXT:
+      assert(width_ == 8);
+      oss << "fp8e5m2";
+      break;
+    default:
+      oss << "float" << width_;
+      break;
+  }
   return oss.str();
 }
 
-void Float::GetExtraHashWords(std::vector<uint32_t>* words,
-                              std::unordered_set<const Type*>*) const {
-  words->push_back(width_);
+size_t Float::ComputeExtraStateHash(size_t hash, SeenTypes*) const {
+  return hash_combine(hash, width_, encoding_);
 }
 
 Vector::Vector(const Type* type, uint32_t count)
@@ -299,10 +358,11 @@ std::string Vector::str() const {
   return oss.str();
 }
 
-void Vector::GetExtraHashWords(std::vector<uint32_t>* words,
-                               std::unordered_set<const Type*>* seen) const {
-  element_type_->GetHashWords(words, seen);
-  words->push_back(count_);
+size_t Vector::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
+  // prefer form that doesn't require push/pop from stack: add state and
+  // make tail call.
+  hash = hash_combine(hash, count_);
+  return element_type_->ComputeHashValue(hash, seen);
 }
 
 Matrix::Matrix(const Type* type, uint32_t count)
@@ -324,14 +384,14 @@ std::string Matrix::str() const {
   return oss.str();
 }
 
-void Matrix::GetExtraHashWords(std::vector<uint32_t>* words,
-                               std::unordered_set<const Type*>* seen) const {
-  element_type_->GetHashWords(words, seen);
-  words->push_back(count_);
+size_t Matrix::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
+  hash = hash_combine(hash, count_);
+  return element_type_->ComputeHashValue(hash, seen);
 }
 
-Image::Image(Type* type, SpvDim dimen, uint32_t d, bool array, bool multisample,
-             uint32_t sampling, SpvImageFormat f, SpvAccessQualifier qualifier)
+Image::Image(Type* type, spv::Dim dimen, uint32_t d, bool array,
+             bool multisample, uint32_t sampling, spv::ImageFormat f,
+             spv::AccessQualifier qualifier)
     : Type(kImage),
       sampled_type_(type),
       dim_(dimen),
@@ -356,22 +416,16 @@ bool Image::IsSameImpl(const Type* that, IsSameCache* seen) const {
 
 std::string Image::str() const {
   std::ostringstream oss;
-  oss << "image(" << sampled_type_->str() << ", " << dim_ << ", " << depth_
-      << ", " << arrayed_ << ", " << ms_ << ", " << sampled_ << ", " << format_
-      << ", " << access_qualifier_ << ")";
+  oss << "image(" << sampled_type_->str() << ", " << uint32_t(dim_) << ", "
+      << depth_ << ", " << arrayed_ << ", " << ms_ << ", " << sampled_ << ", "
+      << uint32_t(format_) << ", " << uint32_t(access_qualifier_) << ")";
   return oss.str();
 }
 
-void Image::GetExtraHashWords(std::vector<uint32_t>* words,
-                              std::unordered_set<const Type*>* seen) const {
-  sampled_type_->GetHashWords(words, seen);
-  words->push_back(dim_);
-  words->push_back(depth_);
-  words->push_back(arrayed_);
-  words->push_back(ms_);
-  words->push_back(sampled_);
-  words->push_back(format_);
-  words->push_back(access_qualifier_);
+size_t Image::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
+  hash = hash_combine(hash, uint32_t(dim_), depth_, arrayed_, ms_, sampled_,
+                      uint32_t(format_), uint32_t(access_qualifier_));
+  return sampled_type_->ComputeHashValue(hash, seen);
 }
 
 bool SampledImage::IsSameImpl(const Type* that, IsSameCache* seen) const {
@@ -387,9 +441,8 @@ std::string SampledImage::str() const {
   return oss.str();
 }
 
-void SampledImage::GetExtraHashWords(
-    std::vector<uint32_t>* words, std::unordered_set<const Type*>* seen) const {
-  image_type_->GetHashWords(words, seen);
+size_t SampledImage::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
+  return image_type_->ComputeHashValue(hash, seen);
 }
 
 Array::Array(const Type* type, const Array::LengthInfo& length_info_arg)
@@ -422,15 +475,18 @@ std::string Array::str() const {
   return oss.str();
 }
 
-void Array::GetExtraHashWords(std::vector<uint32_t>* words,
-                              std::unordered_set<const Type*>* seen) const {
-  element_type_->GetHashWords(words, seen);
-  // This should mirror the logic in IsSameImpl
-  words->insert(words->end(), length_info_.words.begin(),
-                length_info_.words.end());
+size_t Array::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
+  hash = hash_combine(hash, length_info_.words);
+  return element_type_->ComputeHashValue(hash, seen);
 }
 
 void Array::ReplaceElementType(const Type* type) { element_type_ = type; }
+
+Array::LengthInfo Array::GetConstantLengthInfo(uint32_t const_id,
+                                               uint32_t length) const {
+  std::vector<uint32_t> extra_words{LengthInfo::Case::kConstant, length};
+  return {const_id, extra_words};
+}
 
 RuntimeArray::RuntimeArray(const Type* type)
     : Type(kRuntimeArray), element_type_(type) {
@@ -450,12 +506,39 @@ std::string RuntimeArray::str() const {
   return oss.str();
 }
 
-void RuntimeArray::GetExtraHashWords(
-    std::vector<uint32_t>* words, std::unordered_set<const Type*>* seen) const {
-  element_type_->GetHashWords(words, seen);
+size_t RuntimeArray::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
+  return element_type_->ComputeHashValue(hash, seen);
 }
 
 void RuntimeArray::ReplaceElementType(const Type* type) {
+  element_type_ = type;
+}
+
+NodePayloadArrayAMDX::NodePayloadArrayAMDX(const Type* type)
+    : Type(kNodePayloadArrayAMDX), element_type_(type) {
+  assert(!type->AsVoid());
+}
+
+bool NodePayloadArrayAMDX::IsSameImpl(const Type* that,
+                                      IsSameCache* seen) const {
+  const NodePayloadArrayAMDX* rat = that->AsNodePayloadArrayAMDX();
+  if (!rat) return false;
+  return element_type_->IsSameImpl(rat->element_type_, seen) &&
+         HasSameDecorations(that);
+}
+
+std::string NodePayloadArrayAMDX::str() const {
+  std::ostringstream oss;
+  oss << "[" << element_type_->str() << "]";
+  return oss.str();
+}
+
+size_t NodePayloadArrayAMDX::ComputeExtraStateHash(size_t hash,
+                                                   SeenTypes* seen) const {
+  return element_type_->ComputeHashValue(hash, seen);
+}
+
+void NodePayloadArrayAMDX::ReplaceElementType(const Type* type) {
   element_type_ = type;
 }
 
@@ -509,19 +592,14 @@ std::string Struct::str() const {
   return oss.str();
 }
 
-void Struct::GetExtraHashWords(std::vector<uint32_t>* words,
-                               std::unordered_set<const Type*>* seen) const {
+size_t Struct::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
   for (auto* t : element_types_) {
-    t->GetHashWords(words, seen);
+    hash = t->ComputeHashValue(hash, seen);
   }
   for (const auto& pair : element_decorations_) {
-    words->push_back(pair.first);
-    for (const auto& d : pair.second) {
-      for (auto w : d) {
-        words->push_back(w);
-      }
-    }
+    hash = hash_combine(hash, pair.first, pair.second);
   }
+  return hash;
 }
 
 bool Opaque::IsSameImpl(const Type* that, IsSameCache*) const {
@@ -536,14 +614,11 @@ std::string Opaque::str() const {
   return oss.str();
 }
 
-void Opaque::GetExtraHashWords(std::vector<uint32_t>* words,
-                               std::unordered_set<const Type*>*) const {
-  for (auto c : name_) {
-    words->push_back(static_cast<char32_t>(c));
-  }
+size_t Opaque::ComputeExtraStateHash(size_t hash, SeenTypes*) const {
+  return hash_combine(hash, name_);
 }
 
-Pointer::Pointer(const Type* type, SpvStorageClass sc)
+Pointer::Pointer(const Type* type, spv::StorageClass sc)
     : Type(kPointer), pointee_type_(type), storage_class_(sc) {}
 
 bool Pointer::IsSameImpl(const Type* that, IsSameCache* seen) const {
@@ -554,25 +629,39 @@ bool Pointer::IsSameImpl(const Type* that, IsSameCache* seen) const {
   if (!p.second) {
     return true;
   }
-  bool same_pointee = pointee_type_->IsSameImpl(pt->pointee_type_, seen);
-  seen->erase(p.first);
-  if (!same_pointee) {
-    return false;
+  if (pointee_type_ != nullptr && pt->pointee_type_ != nullptr) {
+    bool same_pointee = pointee_type_->IsSameImpl(pt->pointee_type_, seen);
+    seen->erase(p.first);
+    if (!same_pointee) {
+      return false;
+    }
+  } else {
+    seen->erase(p.first);
+    // Either both are untyped or it is mixed typed and untyped.
+    if (pointee_type_ != pt->pointee_type_) {
+      return false;
+    }
   }
   return HasSameDecorations(that);
 }
 
 std::string Pointer::str() const {
   std::ostringstream os;
-  os << pointee_type_->str() << " " << static_cast<uint32_t>(storage_class_)
-     << "*";
+  if (pointee_type_) {
+    os << pointee_type_->str();
+  } else {
+    os << "untyped_ptr";
+  }
+  os << " " << static_cast<uint32_t>(storage_class_) << "*";
   return os.str();
 }
 
-void Pointer::GetExtraHashWords(std::vector<uint32_t>* words,
-                                std::unordered_set<const Type*>* seen) const {
-  pointee_type_->GetHashWords(words, seen);
-  words->push_back(storage_class_);
+size_t Pointer::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
+  hash = hash_combine(hash, uint32_t(storage_class_));
+  if (pointee_type_) {
+    hash = pointee_type_->ComputeHashValue(hash, seen);
+  }
+  return hash;
 }
 
 void Pointer::SetPointeeType(const Type* type) { pointee_type_ = type; }
@@ -606,12 +695,11 @@ std::string Function::str() const {
   return oss.str();
 }
 
-void Function::GetExtraHashWords(std::vector<uint32_t>* words,
-                                 std::unordered_set<const Type*>* seen) const {
-  return_type_->GetHashWords(words, seen);
+size_t Function::ComputeExtraStateHash(size_t hash, SeenTypes* seen) const {
   for (const auto* t : param_types_) {
-    t->GetHashWords(words, seen);
+    hash = t->ComputeHashValue(hash, seen);
   }
+  return return_type_->ComputeHashValue(hash, seen);
 }
 
 void Function::SetReturnType(const Type* type) { return_type_ = type; }
@@ -624,13 +712,12 @@ bool Pipe::IsSameImpl(const Type* that, IsSameCache*) const {
 
 std::string Pipe::str() const {
   std::ostringstream oss;
-  oss << "pipe(" << access_qualifier_ << ")";
+  oss << "pipe(" << uint32_t(access_qualifier_) << ")";
   return oss.str();
 }
 
-void Pipe::GetExtraHashWords(std::vector<uint32_t>* words,
-                             std::unordered_set<const Type*>*) const {
-  words->push_back(access_qualifier_);
+size_t Pipe::ComputeExtraStateHash(size_t hash, SeenTypes*) const {
+  return hash_combine(hash, uint32_t(access_qualifier_));
 }
 
 bool ForwardPointer::IsSameImpl(const Type* that, IsSameCache*) const {
@@ -653,11 +740,11 @@ std::string ForwardPointer::str() const {
   return oss.str();
 }
 
-void ForwardPointer::GetExtraHashWords(
-    std::vector<uint32_t>* words, std::unordered_set<const Type*>* seen) const {
-  words->push_back(target_id_);
-  words->push_back(storage_class_);
-  if (pointer_) pointer_->GetHashWords(words, seen);
+size_t ForwardPointer::ComputeExtraStateHash(size_t hash,
+                                             SeenTypes* seen) const {
+  hash = hash_combine(hash, target_id_, uint32_t(storage_class_));
+  if (pointer_) hash = pointer_->ComputeHashValue(hash, seen);
+  return hash;
 }
 
 CooperativeMatrixNV::CooperativeMatrixNV(const Type* type, const uint32_t scope,
@@ -681,12 +768,10 @@ std::string CooperativeMatrixNV::str() const {
   return oss.str();
 }
 
-void CooperativeMatrixNV::GetExtraHashWords(
-    std::vector<uint32_t>* words, std::unordered_set<const Type*>* pSet) const {
-  component_type_->GetHashWords(words, pSet);
-  words->push_back(scope_id_);
-  words->push_back(rows_id_);
-  words->push_back(columns_id_);
+size_t CooperativeMatrixNV::ComputeExtraStateHash(size_t hash,
+                                                  SeenTypes* seen) const {
+  hash = hash_combine(hash, scope_id_, rows_id_, columns_id_);
+  return component_type_->ComputeHashValue(hash, seen);
 }
 
 bool CooperativeMatrixNV::IsSameImpl(const Type* that,
@@ -696,6 +781,122 @@ bool CooperativeMatrixNV::IsSameImpl(const Type* that,
   return component_type_->IsSameImpl(mt->component_type_, seen) &&
          scope_id_ == mt->scope_id_ && rows_id_ == mt->rows_id_ &&
          columns_id_ == mt->columns_id_ && HasSameDecorations(that);
+}
+
+CooperativeMatrixKHR::CooperativeMatrixKHR(const Type* type,
+                                           const uint32_t scope,
+                                           const uint32_t rows,
+                                           const uint32_t columns,
+                                           const uint32_t use)
+    : Type(kCooperativeMatrixKHR),
+      component_type_(type),
+      scope_id_(scope),
+      rows_id_(rows),
+      columns_id_(columns),
+      use_id_(use) {
+  assert(type != nullptr);
+  assert(scope != 0);
+  assert(rows != 0);
+  assert(columns != 0);
+}
+
+std::string CooperativeMatrixKHR::str() const {
+  std::ostringstream oss;
+  oss << "<" << component_type_->str() << ", " << scope_id_ << ", " << rows_id_
+      << ", " << columns_id_ << ", " << use_id_ << ">";
+  return oss.str();
+}
+
+size_t CooperativeMatrixKHR::ComputeExtraStateHash(size_t hash,
+                                                   SeenTypes* seen) const {
+  hash = hash_combine(hash, scope_id_, rows_id_, columns_id_, use_id_);
+  return component_type_->ComputeHashValue(hash, seen);
+}
+
+bool CooperativeMatrixKHR::IsSameImpl(const Type* that,
+                                      IsSameCache* seen) const {
+  const CooperativeMatrixKHR* mt = that->AsCooperativeMatrixKHR();
+  if (!mt) return false;
+  return component_type_->IsSameImpl(mt->component_type_, seen) &&
+         scope_id_ == mt->scope_id_ && rows_id_ == mt->rows_id_ &&
+         columns_id_ == mt->columns_id_ && use_id_ == mt->use_id_ &&
+         HasSameDecorations(that);
+}
+
+TensorLayoutNV::TensorLayoutNV(const uint32_t dim, const uint32_t clamp_mode)
+    : Type(kTensorLayoutNV), dim_id_(dim), clamp_mode_id_(clamp_mode) {}
+
+std::string TensorLayoutNV::str() const {
+  std::ostringstream oss;
+  oss << "<" << dim_id_ << ", " << clamp_mode_id_ << ">";
+  return oss.str();
+}
+
+size_t TensorLayoutNV::ComputeExtraStateHash(size_t hash, SeenTypes*) const {
+  return hash_combine(hash, dim_id_, clamp_mode_id_);
+}
+
+bool TensorLayoutNV::IsSameImpl(const Type* that, IsSameCache*) const {
+  const TensorLayoutNV* tl = that->AsTensorLayoutNV();
+  if (!tl) return false;
+  return dim_id_ == tl->dim_id_ && clamp_mode_id_ == tl->clamp_mode_id_;
+}
+
+TensorViewNV::TensorViewNV(const uint32_t dim, const uint32_t clamp_mode,
+                           const std::vector<uint32_t>& perm)
+    : Type(kTensorViewNV),
+      dim_id_(dim),
+      has_dimensions_id_(clamp_mode),
+      perm_(perm) {}
+
+std::string TensorViewNV::str() const {
+  std::ostringstream oss;
+  oss << "<" << dim_id_ << ", " << has_dimensions_id_;
+  for (auto p : perm_) {
+    oss << ", " << p;
+  }
+  oss << ">";
+  return oss.str();
+}
+
+size_t TensorViewNV::ComputeExtraStateHash(size_t hash, SeenTypes*) const {
+  return hash_combine(hash, dim_id_, has_dimensions_id_, perm_);
+}
+
+bool TensorViewNV::IsSameImpl(const Type* that, IsSameCache*) const {
+  const TensorViewNV* tv = that->AsTensorViewNV();
+  if (!tv) return false;
+  return dim_id_ == tv->dim_id_ &&
+         has_dimensions_id_ == tv->has_dimensions_id_ && perm_ == tv->perm_;
+}
+
+CooperativeVectorNV::CooperativeVectorNV(const Type* type,
+                                         const uint32_t components)
+    : Type(kCooperativeVectorNV),
+      component_type_(type),
+      components_(components) {
+  assert(type != nullptr);
+  assert(components != 0);
+}
+
+std::string CooperativeVectorNV::str() const {
+  std::ostringstream oss;
+  oss << "<" << component_type_->str() << ", " << components_ << ">";
+  return oss.str();
+}
+
+size_t CooperativeVectorNV::ComputeExtraStateHash(size_t hash,
+                                                  SeenTypes* seen) const {
+  hash = hash_combine(hash, components_);
+  return component_type_->ComputeHashValue(hash, seen);
+}
+
+bool CooperativeVectorNV::IsSameImpl(const Type* that,
+                                     IsSameCache* seen) const {
+  const CooperativeVectorNV* mt = that->AsCooperativeVectorNV();
+  if (!mt) return false;
+  return component_type_->IsSameImpl(mt->component_type_, seen) &&
+         components_ == mt->components_ && HasSameDecorations(that);
 }
 
 }  // namespace analysis

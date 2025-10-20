@@ -22,7 +22,7 @@ int main(){
         std::cout << "Scope timer ended after " << seconds << "s\n";
     });
 
-    auto app = Application("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT, bgfx::RendererType::Vulkan);
+    auto app = Application("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT, bgfx::RendererType::OpenGL);
 
     DelayTimer timer(2500, [] {
         std::cout << "Delay timer finished\n";

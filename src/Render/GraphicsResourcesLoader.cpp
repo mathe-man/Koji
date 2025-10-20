@@ -6,19 +6,17 @@
 
 using namespace Koji;
 
-struct GraphicsResourcesLoader::PosColorVertex {
-    float x, y, z;
-    uint32_t abgr;
+bgfx::VertexLayout GraphicsResourcesLoader::PosColorVertex::init()
+{
+    static bgfx::VertexLayout layout;
+    layout.begin()
+        .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
+        .end();
+    return layout;
+}
 
-    static bgfx::VertexLayout init() {
-        static bgfx::VertexLayout layout;
-        layout.begin()
-            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true)
-            .end();
-        return layout;
-    }
-};
+bgfx::VertexLayout GraphicsResourcesLoader::s_layout = PosColorVertex::init();
 
 Mesh GraphicsResourcesLoader::CreateCube() {
     // Init vertex layout once
@@ -48,7 +46,7 @@ Mesh GraphicsResourcesLoader::CreateCube() {
     Mesh mesh{};
     mesh.vbh = bgfx::createVertexBuffer(
         bgfx::makeRef(vertices, sizeof(vertices)),
-        PosColorVertex::init()
+        s_layout
     );
 
     mesh.ibh = bgfx::createIndexBuffer(

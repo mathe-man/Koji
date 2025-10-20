@@ -38,11 +38,6 @@ Pass::Status InlineExhaustivePass::InlineExhaustive(Function* func) {
         if (newBlocks.size() > 1) UpdateSucceedingPhis(newBlocks);
         // Replace old calling block with new block(s).
 
-        // We need to kill the name and decorations for the call, which
-        // will be deleted.  Other instructions in the block will be moved to
-        // newBlocks.  We don't need to do anything with those.
-        context()->KillNamesAndDecorates(&*ii);
-
         bi = bi.Erase();
 
         for (auto& bb : newBlocks) {
@@ -60,6 +55,11 @@ Pass::Status InlineExhaustivePass::InlineExhaustive(Function* func) {
       }
     }
   }
+
+  if (modified) {
+    FixDebugDeclares(func);
+  }
+
   return (modified ? Status::SuccessWithChange : Status::SuccessWithoutChange);
 }
 
@@ -70,7 +70,7 @@ Pass::Status InlineExhaustivePass::ProcessImpl() {
     status = CombineStatus(status, InlineExhaustive(fp));
     return false;
   };
-  context()->ProcessEntryPointCallTree(pfn);
+  context()->ProcessReachableCallTree(pfn);
   return status;
 }
 

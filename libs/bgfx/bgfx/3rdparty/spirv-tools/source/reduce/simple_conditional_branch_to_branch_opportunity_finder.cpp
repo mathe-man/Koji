@@ -20,27 +20,24 @@
 namespace spvtools {
 namespace reduce {
 
-using opt::IRContext;
-using opt::Instruction;
-
 std::vector<std::unique_ptr<ReductionOpportunity>>
 SimpleConditionalBranchToBranchOpportunityFinder::GetAvailableOpportunities(
-    IRContext* context) const {
+    opt::IRContext* context, uint32_t target_function) const {
   std::vector<std::unique_ptr<ReductionOpportunity>> result;
 
   // Consider every function.
-  for (auto& function : *context->module()) {
+  for (auto* function : GetTargetFunctions(context, target_function)) {
     // Consider every block in the function.
-    for (auto& block : function) {
-      // The terminator must be SpvOpBranchConditional.
-      Instruction* terminator = block.terminator();
-      if (terminator->opcode() != SpvOpBranchConditional) {
+    for (auto& block : *function) {
+      // The terminator must be spv::Op::OpBranchConditional.
+      opt::Instruction* terminator = block.terminator();
+      if (terminator->opcode() != spv::Op::OpBranchConditional) {
         continue;
       }
       // It must not be a selection header, as these cannot be followed by
       // OpBranch.
       if (block.GetMergeInst() &&
-          block.GetMergeInst()->opcode() == SpvOpSelectionMerge) {
+          block.GetMergeInst()->opcode() == spv::Op::OpSelectionMerge) {
         continue;
       }
       // The conditional branch must be simplified.

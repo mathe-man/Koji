@@ -1,6 +1,6 @@
 /*
- * Copyright 2011-2020 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
 #ifndef BGFX_P_H_HEADER_GUARD
@@ -8,16 +8,17 @@
 
 #include <bx/platform.h>
 
-#ifndef BGFX_CONFIG_DEBUG
-#	define BGFX_CONFIG_DEBUG 0
-#endif // BGFX_CONFIG_DEBUG
+#ifndef BX_CONFIG_DEBUG
+#	error "BX_CONFIG_DEBUG must be defined in build script!"
+#endif // BX_CONFIG_DEBUG
 
-#if BGFX_CONFIG_DEBUG || BX_COMPILER_CLANG_ANALYZER
-#	define BX_TRACE _BX_TRACE
-#	define BX_WARN  _BX_WARN
-#	define BX_ASSERT _BX_ASSERT
-#	define BX_CONFIG_ALLOCATOR_DEBUG 1
-#endif // BGFX_CONFIG_DEBUG
+#define BGFX_CONFIG_DEBUG BX_CONFIG_DEBUG
+
+#if BX_CONFIG_DEBUG
+#	define BX_TRACE  _BGFX_TRACE
+#	define BX_WARN   _BGFX_WARN
+#	define BX_ASSERT _BGFX_ASSERT
+#endif // BX_CONFIG_DEBUG
 
 #include <bgfx/bgfx.h>
 #include "config.h"
@@ -26,7 +27,7 @@
 
 // Check handle, cannot be bgfx::kInvalidHandle and must be valid.
 #define BGFX_CHECK_HANDLE(_desc, _handleAlloc, _handle) \
-	BX_ASSERT(isValid(_handle)                           \
+	BX_ASSERT(isValid(_handle)                          \
 		&& _handleAlloc.isValid(_handle.idx)            \
 		, "Invalid handle. %s handle: %d (max %d)"      \
 		, _desc                                         \
@@ -36,7 +37,7 @@
 
 // Check handle, it's ok to be bgfx::kInvalidHandle or must be valid.
 #define BGFX_CHECK_HANDLE_INVALID_OK(_desc, _handleAlloc, _handle) \
-	BX_ASSERT(!isValid(_handle)                                     \
+	BX_ASSERT(!isValid(_handle)                                    \
 		|| _handleAlloc.isValid(_handle.idx)                       \
 		, "Invalid handle. %s handle: %d (max %d)"                 \
 		, _desc                                                    \
@@ -67,7 +68,7 @@
 namespace bgfx
 {
 #if BX_COMPILER_CLANG_ANALYZER
-	void __attribute__( (analyzer_noreturn) ) fatal(Fatal::Enum _code, const char* _format, ...);
+	void __attribute__( (analyzer_noreturn) ) fatal(const char* _filePath, uint16_t _line, Fatal::Enum _code, const char* _format, ...);
 #else
 	void fatal(const char* _filePath, uint16_t _line, Fatal::Enum _code, const char* _format, ...);
 #endif // BX_COMPILER_CLANG_ANALYZER
@@ -78,41 +79,55 @@ namespace bgfx
 	inline bool operator==(const UniformHandle& _lhs,    const UniformHandle&    _rhs) { return _lhs.idx == _rhs.idx; }
 }
 
-#define _BX_TRACE(_format, ...)                                                                     \
-				BX_MACRO_BLOCK_BEGIN                                                                \
-					bgfx::trace(__FILE__, uint16_t(__LINE__), "BGFX " _format "\n", ##__VA_ARGS__); \
-				BX_MACRO_BLOCK_END
+#define _BGFX_TRACE(_format, ...)                                                       \
+	BX_MACRO_BLOCK_BEGIN                                                                \
+		bgfx::trace(__FILE__, uint16_t(__LINE__), "BGFX " _format "\n", ##__VA_ARGS__); \
+	BX_MACRO_BLOCK_END
 
-#define _BX_WARN(_condition, _format, ...)                        \
-				BX_MACRO_BLOCK_BEGIN                              \
-					if (!BX_IGNORE_C4127(_condition) )            \
-					{                                             \
-						BX_TRACE("WARN " _format, ##__VA_ARGS__); \
-					}                                             \
-				BX_MACRO_BLOCK_END
+#define _BGFX_WARN(_condition, _format, ...)          \
+	BX_MACRO_BLOCK_BEGIN                              \
+		if (!BX_IGNORE_C4127(_condition) )            \
+		{                                             \
+			BX_TRACE("WARN " _format, ##__VA_ARGS__); \
+		}                                             \
+	BX_MACRO_BLOCK_END
 
-#define _BX_ASSERT(_condition, _format, ...)                                                                         \
-				BX_MACRO_BLOCK_BEGIN                                                                                \
-					if (!BX_IGNORE_C4127(_condition) )                                                              \
-					{                                                                                               \
-						BX_TRACE("CHECK " _format, ##__VA_ARGS__);                                                  \
-						bgfx::fatal(__FILE__, uint16_t(__LINE__), bgfx::Fatal::DebugCheck, _format, ##__VA_ARGS__); \
-					}                                                                                               \
-				BX_MACRO_BLOCK_END
+#define _BGFX_ASSERT(_condition, _format, ...)                                                                    \
+	BX_MACRO_BLOCK_BEGIN                                                                                          \
+		if (!BX_IGNORE_C4127(_condition)                                                                          \
+		&&  bx::assertFunction(bx::Location::current(), 0, "ASSERT " #_condition " -> " _format, ##__VA_ARGS__) ) \
+		{                                                                                                         \
+			bgfx::fatal(__FILE__, uint16_t(__LINE__), bgfx::Fatal::DebugCheck, _format, ##__VA_ARGS__);           \
+		}                                                                                                         \
+	BX_MACRO_BLOCK_END
 
-#define BGFX_FATAL(_condition, _err, _format, ...)                                     \
-			BX_MACRO_BLOCK_BEGIN                                                       \
-				if (!BX_IGNORE_C4127(_condition) )                                     \
-				{                                                                      \
-					fatal(__FILE__, uint16_t(__LINE__), _err, _format, ##__VA_ARGS__); \
-				}                                                                      \
-			BX_MACRO_BLOCK_END
+#define BGFX_FATAL(_condition, _err, _format, ...)                             \
+	BX_MACRO_BLOCK_BEGIN                                                       \
+		if (!BX_IGNORE_C4127(_condition) )                                     \
+		{                                                                      \
+			fatal(__FILE__, uint16_t(__LINE__), _err, _format, ##__VA_ARGS__); \
+		}                                                                      \
+	BX_MACRO_BLOCK_END
+
+#define BGFX_ERROR_CHECK(_condition, _err, _result, _msg, _format, ...) \
+	if (!BX_IGNORE_C4127(_condition) )                                  \
+	{                                                                   \
+		BX_ERROR_SET(_err, _result, _msg);                              \
+		BX_TRACE("%S: 0x%08x '%S' - " _format                           \
+			, &bxErrorScope.getName()                                   \
+			, _err->get().code                                          \
+			, &_err->getMessage()                                       \
+			, ##__VA_ARGS__                                             \
+			);                                                          \
+		return;                                                         \
+	}
 
 #include <bx/allocator.h>
 #include <bx/bx.h>
 #include <bx/cpu.h>
 #include <bx/debug.h>
 #include <bx/endian.h>
+#include <bx/error.h>
 #include <bx/float4x4_t.h>
 #include <bx/handlealloc.h>
 #include <bx/hash.h>
@@ -131,6 +146,7 @@ namespace bgfx
 #include <bimg/bimg.h>
 #include "shader.h"
 #include "vertexlayout.h"
+#include "version.h"
 
 #define BGFX_CHUNK_MAGIC_TEX BX_MAKEFOURCC('T', 'E', 'X', 0x0)
 
@@ -201,8 +217,6 @@ namespace stl = std;
 
 #if BX_PLATFORM_ANDROID
 #	include <android/native_window.h>
-#elif BX_PLATFORM_WINDOWS
-#	include <windows.h>
 #endif // BX_PLATFORM_*
 
 #define BGFX_MAX_COMPUTE_BINDINGS BGFX_CONFIG_MAX_TEXTURE_SAMPLERS
@@ -215,18 +229,19 @@ namespace stl = std;
 #define BGFX_STATE_INTERNAL_SCISSOR         UINT64_C(0x2000000000000000)
 #define BGFX_STATE_INTERNAL_OCCLUSION_QUERY UINT64_C(0x4000000000000000)
 
-#define BGFX_SUBMIT_RESERVED_MASK              UINT8_C(0xff)
+#define BGFX_SUBMIT_INTERNAL_NONE              UINT8_C(0x00)
+#define BGFX_SUBMIT_INTERNAL_INDEX32           UINT8_C(0x40)
 #define BGFX_SUBMIT_INTERNAL_OCCLUSION_VISIBLE UINT8_C(0x80)
+#define BGFX_SUBMIT_INTERNAL_RESERVED_MASK     UINT8_C(0xff)
 
-#define BGFX_RENDERER_DIRECT3D9_NAME  "Direct3D 9"
+#define BGFX_RENDERER_NOOP_NAME       "Noop"
+#define BGFX_RENDERER_AGC_NAME        "AGC"
 #define BGFX_RENDERER_DIRECT3D11_NAME "Direct3D 11"
 #define BGFX_RENDERER_DIRECT3D12_NAME "Direct3D 12"
 #define BGFX_RENDERER_GNM_NAME        "GNM"
 #define BGFX_RENDERER_METAL_NAME      "Metal"
 #define BGFX_RENDERER_NVN_NAME        "NVN"
 #define BGFX_RENDERER_VULKAN_NAME     "Vulkan"
-#define BGFX_RENDERER_WEBGPU_NAME     "WebGPU"
-#define BGFX_RENDERER_NOOP_NAME       "Noop"
 
 #if BGFX_CONFIG_RENDERER_OPENGL
 #	if BGFX_CONFIG_RENDERER_OPENGL >= 31 && BGFX_CONFIG_RENDERER_OPENGL <= 33
@@ -275,6 +290,8 @@ namespace bgfx
 	extern InternalData g_internalData;
 	extern PlatformData g_platformData;
 	extern bool g_platformDataChangedSinceReset;
+	extern void isFrameBufferValid(uint8_t _num, const Attachment* _attachment, bx::Error* _err);
+	extern void isIdentifierValid(const bx::StringView& _name, bx::Error* _err);
 
 #if BGFX_CONFIG_MAX_DRAW_CALLS < (64<<10)
 	typedef uint16_t RenderItemCount;
@@ -282,37 +299,119 @@ namespace bgfx
 	typedef uint32_t RenderItemCount;
 #endif // BGFX_CONFIG_MAX_DRAW_CALLS < (64<<10)
 
+	///
 	struct Handle
 	{
+		///
+		struct TypeName
+		{
+			const char* abrvName;
+			const char* fullName;
+		};
+
+		///
 		enum Enum
 		{
+			DynamicIndexBuffer,
+			DynamicVertexBuffer,
+			FrameBuffer,
 			IndexBuffer,
+			IndirectBuffer,
+			OcclusionQuery,
+			Program,
 			Shader,
 			Texture,
+			Uniform,
 			VertexBuffer,
+			VertexLayout,
 
 			Count
 		};
 
-		uint16_t type;
+		template<typename Ty>
+		static constexpr Enum toEnum();
+
+		constexpr Handle()
+			: idx(kInvalidHandle)
+			, type(Count)
+		{
+		}
+
+		template<typename Ty>
+		constexpr Handle(Ty _handle)
+			: idx(_handle.idx)
+			, type(uint16_t(toEnum<Ty>() ) )
+		{
+		}
+
+		template<typename Ty>
+		constexpr Ty to() const
+		{
+			if (type == toEnum<Ty>() )
+			{
+				return Ty{ idx };
+			}
+
+			BX_ASSERT(type == toEnum<Ty>(), "Handle type %s, cannot be converted to %s."
+				, getTypeName().fullName
+				, getTypeName(toEnum<Ty>() ).fullName
+				);
+			return { kInvalidHandle };
+		}
+
+		Enum getType() const
+		{
+			return Enum(type);
+		}
+
+		static const TypeName& getTypeName(Handle::Enum _enum);
+
+		const TypeName& getTypeName() const
+		{
+			return getTypeName(getType() );
+		}
+
+		bool isBuffer() const
+		{
+			return false
+				|| type == DynamicIndexBuffer
+				|| type == DynamicVertexBuffer
+				|| type == IndexBuffer
+				|| type == IndirectBuffer
+				|| type == VertexBuffer
+				;
+		}
+
+		bool isTexture() const
+		{
+			return type == Texture;
+		}
+
 		uint16_t idx;
+		uint16_t type;
 	};
 
-#define CONVERT_HANDLE(_name)                           \
-	inline Handle convert(_name##Handle _handle)        \
-	{                                                   \
-		Handle handle = { Handle::_name, _handle.idx }; \
-		return handle;                                  \
-	}
+#define IMPLEMENT_HANDLE(_name)                                   \
+	template<>                                                    \
+	inline constexpr Handle::Enum Handle::toEnum<_name##Handle>() \
+	{                                                             \
+		return Handle::_name;                                     \
+	}                                                             \
 
-	CONVERT_HANDLE(IndexBuffer);
-	CONVERT_HANDLE(Shader);
-	CONVERT_HANDLE(Texture);
-	CONVERT_HANDLE(VertexBuffer);
+	IMPLEMENT_HANDLE(DynamicIndexBuffer);
+	IMPLEMENT_HANDLE(DynamicVertexBuffer);
+	IMPLEMENT_HANDLE(FrameBuffer);
+	IMPLEMENT_HANDLE(IndexBuffer);
+	IMPLEMENT_HANDLE(IndirectBuffer);
+	IMPLEMENT_HANDLE(OcclusionQuery);
+	IMPLEMENT_HANDLE(Program);
+	IMPLEMENT_HANDLE(Shader);
+	IMPLEMENT_HANDLE(Texture);
+	IMPLEMENT_HANDLE(Uniform);
+	IMPLEMENT_HANDLE(VertexBuffer);
+	IMPLEMENT_HANDLE(VertexLayout);
 
-#undef CONVERT_HANDLE
-
-	const char* getTypeName(Handle _handle);
+#undef IMPLEMENT_HANDLE
 
 	inline bool isValid(const VertexLayout& _layout)
 	{
@@ -328,7 +427,7 @@ namespace bgfx
 		};
 	};
 
-	bool windowsVersionIs(Condition::Enum _op, uint32_t _version);
+	bool windowsVersionIs(Condition::Enum _op, uint32_t _version, uint32_t _build = UINT32_MAX);
 
 	constexpr bool isShaderType(uint32_t _magic, char _type)
 	{
@@ -401,9 +500,9 @@ namespace bgfx
 
 		void clear()
 		{
-			m_x =
-			m_y =
-			m_width =
+			m_x      = 0;
+			m_y      = 0;
+			m_width  = 0;
 			m_height = 0;
 		}
 
@@ -458,8 +557,8 @@ namespace bgfx
 		uint16_t m_height;
 		uint16_t m_depth;
 		uint16_t m_numLayers;
-		uint8_t m_numMips;
-		bool m_cubeMap;
+		uint8_t  m_numMips;
+		bool     m_cubeMap;
 		const Memory* m_mem;
 	};
 
@@ -506,13 +605,6 @@ namespace bgfx
 		release( (const Memory*)_mem);
 	}
 
-	inline uint32_t castfu(float _value)
-	{
-		union {	float fl; uint32_t ui; } un;
-		un.fl = _value;
-		return un.ui;
-	}
-
 	inline uint64_t packStencil(uint32_t _fstencil, uint32_t _bstencil)
 	{
 		return (uint64_t(_bstencil)<<32)|uint64_t(_fstencil);
@@ -536,7 +628,7 @@ namespace bgfx
 		if (_hasMips)
 		{
 			const uint32_t max = bx::max(_width, _height, _depth);
-			const uint32_t num = 1 + uint32_t(bx::log2<int32_t>(max) );
+			const uint32_t num = 1 + bx::floorLog2(max);
 
 			return uint8_t(num);
 		}
@@ -544,8 +636,11 @@ namespace bgfx
 		return 1;
 	}
 
-	/// Dump vertex layout into debug output.
+	/// Dump vertex layout info into debug output.
 	void dump(const VertexLayout& _layout);
+
+	/// Dump resolution and reset info into debug output.
+	void dump(const Resolution& _resolution);
 
 	struct TextVideoMem
 	{
@@ -562,7 +657,7 @@ namespace bgfx
 
 		~TextVideoMem()
 		{
-			BX_FREE(g_allocator, m_mem);
+			bx::free(g_allocator, m_mem);
 		}
 
 		void resize(bool _small, uint32_t _width, uint32_t _height)
@@ -576,17 +671,17 @@ namespace bgfx
 			||  m_small  != _small)
 			{
 				m_small  = _small;
-				m_width  = (uint16_t)width;
-				m_height = (uint16_t)height;
+				m_width  = bx::narrowCast<uint16_t>(width);
+				m_height = bx::narrowCast<uint16_t>(height);
 
 				uint32_t size = m_size;
 				m_size = m_width * m_height;
 
-				m_mem = (MemSlot*)BX_REALLOC(g_allocator, m_mem, m_size * sizeof(MemSlot));
+				m_mem = (MemSlot*)bx::realloc(g_allocator, m_mem, m_size * sizeof(MemSlot) );
 
 				if (size < m_size)
 				{
-					bx::memSet(&m_mem[size], 0, (m_size-size) * sizeof(MemSlot));
+					bx::memSet(&m_mem[size], 0, (m_size-size) * sizeof(MemSlot) );
 				}
 			}
 		}
@@ -594,7 +689,7 @@ namespace bgfx
 		void clear(uint8_t _attr = 0)
 		{
 			MemSlot* mem = m_mem;
-			bx::memSet(mem, 0, m_size * sizeof(MemSlot));
+			bx::memSet(mem, 0, m_size * sizeof(MemSlot) );
 			if (_attr != 0)
 			{
 				for (uint32_t ii = 0, num = m_size; ii < num; ++ii)
@@ -653,7 +748,7 @@ namespace bgfx
 
 	struct TextVideoMemBlitter
 	{
-		void init();
+		void init(uint8_t scale);
 		void shutdown();
 
 		TextureHandle m_texture;
@@ -661,6 +756,7 @@ namespace bgfx
 		TransientIndexBuffer* m_ib;
 		VertexLayout m_layout;
 		ProgramHandle m_program;
+		uint8_t m_scale;
 	};
 
 	struct RendererContextI;
@@ -691,8 +787,8 @@ namespace bgfx
 		{
 			if (0 < m_num)
 			{
-				uint32_t* tempKeys = (uint32_t*)alloca(sizeof(m_keys) );
-				uint32_t* tempValues = (uint32_t*)alloca(sizeof(m_values) );
+				uint32_t* tempKeys = (uint32_t*)BX_STACK_ALLOC(sizeof(m_keys) );
+				uint32_t* tempValues = (uint32_t*)BX_STACK_ALLOC(sizeof(m_values) );
 				bx::radixSort(m_keys, tempKeys, m_values, tempValues, m_num);
 				return true;
 			}
@@ -747,6 +843,7 @@ namespace bgfx
 			InvViewProj,
 			Model,
 			ModelView,
+			InvModelView,
 			ModelViewProj,
 			AlphaRef,
 			Count
@@ -760,13 +857,12 @@ namespace bgfx
 	const char* getUniformTypeName(UniformType::Enum _enum);
 	UniformType::Enum nameToUniformTypeEnum(const char* _name);
 	const char* getPredefinedUniformName(PredefinedUniform::Enum _enum);
-	PredefinedUniform::Enum nameToPredefinedUniformEnum(const char* _name);
+	PredefinedUniform::Enum nameToPredefinedUniformEnum(const bx::StringView& _name);
 
 	class CommandBuffer
 	{
 		BX_CLASS(CommandBuffer
 			, NO_COPY
-			, NO_ASSIGNMENT
 			);
 
 	public:
@@ -782,7 +878,7 @@ namespace bgfx
 
 		~CommandBuffer()
 		{
-			BX_FREE(g_allocator, m_buffer);
+			bx::free(g_allocator, m_buffer);
 		}
 
 		void init(uint32_t _minCapacity)
@@ -825,13 +921,12 @@ namespace bgfx
 			DestroyFrameBuffer,
 			DestroyUniform,
 			ReadTexture,
-			RequestScreenShot,
 		};
 
 		void resize(uint32_t _capacity = 0)
 		{
 			m_capacity = bx::alignUp(bx::max(_capacity, m_minCapacity), 1024);
-			m_buffer = (uint8_t*)BX_REALLOC(g_allocator, m_buffer, m_capacity);
+			m_buffer = (uint8_t*)bx::realloc(g_allocator, m_buffer, m_capacity);
 		}
 
 		void write(const void* _data, uint32_t _size)
@@ -851,6 +946,14 @@ namespace bgfx
 		{
 			align(BX_ALIGNOF(Type) );
 			write(reinterpret_cast<const uint8_t*>(&_in), sizeof(Type) );
+		}
+
+		void write(const bx::StringView& _str)
+		{
+			const uint16_t len = bx::narrowCast<uint16_t>(_str.getLength()+1);
+			write(len);
+			write(_str.getPtr(), len-1);
+			write('\0');
 		}
 
 		void read(void* _data, uint32_t _size)
@@ -932,7 +1035,7 @@ namespace bgfx
 	};
 
 	//
-	constexpr uint8_t  kSortKeyViewNumBits         = 10;
+	constexpr uint8_t  kSortKeyViewNumBits         = uint8_t(31 - bx::uint32_cntlz(BGFX_CONFIG_MAX_VIEWS) );
 	constexpr uint8_t  kSortKeyViewBitShift        = 64-kSortKeyViewNumBits;
 	constexpr uint64_t kSortKeyViewMask            = uint64_t(BGFX_CONFIG_MAX_VIEWS-1)<<kSortKeyViewBitShift;
 
@@ -987,9 +1090,9 @@ namespace bgfx
 	constexpr uint8_t  kSortKeyComputeProgramShift = kSortKeyComputeSeqShift - BGFX_CONFIG_SORT_KEY_NUM_BITS_PROGRAM;
 	constexpr uint64_t kSortKeyComputeProgramMask  = uint64_t(BGFX_CONFIG_MAX_PROGRAMS-1)<<kSortKeyComputeProgramShift;
 
-	BX_STATIC_ASSERT(BGFX_CONFIG_MAX_VIEWS <= (1<<kSortKeyViewNumBits) );
-	BX_STATIC_ASSERT( (BGFX_CONFIG_MAX_PROGRAMS & (BGFX_CONFIG_MAX_PROGRAMS-1) ) == 0); // Must be power of 2.
-	BX_STATIC_ASSERT( (0 // Render key mask shouldn't overlap.
+	static_assert(BGFX_CONFIG_MAX_VIEWS <= (1<<kSortKeyViewNumBits) );
+	static_assert( (BGFX_CONFIG_MAX_PROGRAMS & (BGFX_CONFIG_MAX_PROGRAMS-1) ) == 0); // Must be power of 2.
+	static_assert( (0 // Render key mask shouldn't overlap.
 		| kSortKeyViewMask
 		| kSortKeyDrawBit
 		| kSortKeyDrawTypeMask
@@ -1004,7 +1107,7 @@ namespace bgfx
 		^ kSortKeyDraw0ProgramMask
 		^ kSortKeyDraw0DepthMask
 		) );
-	BX_STATIC_ASSERT( (0 // Render key mask shouldn't overlap.
+	static_assert( (0 // Render key mask shouldn't overlap.
 		| kSortKeyViewMask
 		| kSortKeyDrawBit
 		| kSortKeyDrawTypeMask
@@ -1019,7 +1122,7 @@ namespace bgfx
 		^ kSortKeyDraw1BlendMask
 		^ kSortKeyDraw1ProgramMask
 		) );
-	BX_STATIC_ASSERT( (0 // Render key mask shouldn't overlap.
+	static_assert( (0 // Render key mask shouldn't overlap.
 		| kSortKeyViewMask
 		| kSortKeyDrawBit
 		| kSortKeyDrawTypeMask
@@ -1034,7 +1137,7 @@ namespace bgfx
 		^ kSortKeyDraw2BlendMask
 		^ kSortKeyDraw2ProgramMask
 		) );
-	BX_STATIC_ASSERT( (0 // Compute key mask shouldn't overlap.
+	static_assert( (0 // Compute key mask shouldn't overlap.
 		| kSortKeyViewMask
 		| kSortKeyDrawBit
 		| kSortKeyComputeSeqShift
@@ -1055,21 +1158,21 @@ namespace bgfx
 	// |        +-draw                                                  |
 	// |----------------------------------------------------------------| Draw Key 0 - Sort by program
 	// |        |kkttpppppppppdddddddddddddddddddddddddddddddd          |
-	// |        |   ^        ^                               ^          |
-	// |        |   |        |                               |          |
-	// |        |   +-blend  +-program                 depth-+          |
-	// |        |                                                       |
+	// |        | ^ ^        ^                               ^          |
+	// |        | | |        |                               |          |
+	// |        | | +-blend  +-program                 depth-+          |
+	// |        | +-key type                                            |
 	// |----------------------------------------------------------------| Draw Key 1 - Sort by depth
 	// |        |kkddddddddddddddddddddddddddddddddttppppppppp          |
-	// |        |                                ^^ ^        ^          |
-	// |        |                                || +-trans  |          |
-	// |        |                          depth-+   program-+          |
+	// |        | ^                               ^ ^        ^          |
+	// |        | |                               | +-blend  |          |
+	// |        | +-key type                depth-+  program-+          |
 	// |        |                                                       |
 	// |----------------------------------------------------------------| Draw Key 2 - Sequential
 	// |        |kkssssssssssssssssssssttppppppppp                      |
-	// |        |                     ^ ^        ^                      |
-	// |        |                     | |        |                      |
-	// |        |                 seq-+ +-trans  +-program              |
+	// |        | ^                   ^ ^        ^                      |
+	// |        | |                   | |        |                      |
+	// |        | +-key type      seq-+ +-blend  +-program              |
 	// |        |                                                       |
 	// |----------------------------------------------------------------| Compute Key
 	// |        |ssssssssssssssssssssppppppppp                          |
@@ -1156,15 +1259,18 @@ namespace bgfx
 		bool decode(uint64_t _key, ViewId _viewRemap[BGFX_CONFIG_MAX_VIEWS])
 		{
 			m_view = _viewRemap[(_key & kSortKeyViewMask) >> kSortKeyViewBitShift];
+
 			if (_key & kSortKeyDrawBit)
 			{
 				uint64_t type = _key & kSortKeyDrawTypeMask;
+
 				if (type == kSortKeyDrawTypeDepth)
 				{
 					m_program.idx = uint16_t( (_key & kSortKeyDraw1ProgramMask) >> kSortKeyDraw1ProgramShift);
 					return false;
 				}
-				else if (type == kSortKeyDrawTypeSequence)
+
+				if (type == kSortKeyDrawTypeSequence)
 				{
 					m_program.idx = uint16_t( (_key & kSortKeyDraw2ProgramMask) >> kSortKeyDraw2ProgramShift);
 					return false;
@@ -1208,27 +1314,33 @@ namespace bgfx
 	};
 #undef SORT_KEY_RENDER_DRAW
 
+	constexpr uint8_t  kBlitKeyViewShift = 32-kSortKeyViewNumBits;
+	constexpr uint32_t kBlitKeyViewMask  = uint32_t(BGFX_CONFIG_MAX_VIEWS-1)<<kBlitKeyViewShift;
+	constexpr uint8_t  kBlitKeyItemShift = 0;
+	constexpr uint32_t kBlitKeyItemMask  = UINT16_MAX;
+
 	struct BlitKey
 	{
 		uint32_t encode()
 		{
-			return 0
-				| (uint32_t(m_view) << 24)
-				|  uint32_t(m_item)
-				;
+			const uint32_t view = (uint32_t(m_view) << kBlitKeyViewShift) & kBlitKeyViewMask;
+			const uint32_t item = (uint32_t(m_item) << kBlitKeyItemShift) & kBlitKeyItemMask;
+			const uint32_t key  = view|item;
+
+			return key;
 		}
 
 		void decode(uint32_t _key)
 		{
-			m_item = uint16_t(_key & UINT16_MAX);
-			m_view =   ViewId(_key >> 24);
+			m_item = uint16_t( (_key & kBlitKeyItemMask) >> kBlitKeyItemShift);
+			m_view =   ViewId( (_key & kBlitKeyViewMask) >> kBlitKeyViewShift);
 		}
 
 		static uint32_t remapView(uint32_t _key, ViewId _viewRemap[BGFX_CONFIG_MAX_VIEWS])
 		{
-			const ViewId   oldView  = ViewId(_key >> 24);
-			const uint32_t view     = uint32_t(_viewRemap[oldView]) << 24;
-			const uint32_t key      = (_key & ~UINT32_C(0xff000000) ) | view;
+			const ViewId   oldView = ViewId( (_key & kBlitKeyViewMask) >> kBlitKeyViewShift);
+			const uint32_t view    = uint32_t( (_viewRemap[oldView] << kBlitKeyViewShift) & kBlitKeyViewMask);
+			const uint32_t key     = (_key & ~kBlitKeyViewMask) | view;
 			return key;
 		}
 
@@ -1279,7 +1391,7 @@ namespace bgfx
 			uint32_t first = bx::atomicFetchAndAddsat<uint32_t>(&m_num, num, BGFX_CONFIG_MAX_MATRIX_CACHE - 1);
 			BX_WARN(first+num < BGFX_CONFIG_MAX_MATRIX_CACHE, "Matrix cache overflow. %d (max: %d)", first+num, BGFX_CONFIG_MAX_MATRIX_CACHE);
 			num = bx::min(num, BGFX_CONFIG_MAX_MATRIX_CACHE-1-first);
-			*_num = (uint16_t)num;
+			*_num = bx::narrowCast<uint16_t>(num);
 			return first;
 		}
 
@@ -1340,7 +1452,7 @@ namespace bgfx
 			return first;
 		}
 
-		Rect m_cache[BGFX_CONFIG_MAX_RECT_CACHE];
+		Rect     m_cache[BGFX_CONFIG_MAX_RECT_CACHE];
 		uint32_t m_num;
 	};
 
@@ -1372,24 +1484,24 @@ namespace bgfx
 			const uint32_t structSize = sizeof(UniformBuffer)-sizeof(UniformBuffer::m_buffer);
 
 			uint32_t size = bx::alignUp(_size, 16);
-			void*    data = BX_ALLOC(g_allocator, size+structSize);
+			void*    data = bx::alloc(g_allocator, size+structSize);
 			return BX_PLACEMENT_NEW(data, UniformBuffer)(size);
 		}
 
 		static void destroy(UniformBuffer* _uniformBuffer)
 		{
 			_uniformBuffer->~UniformBuffer();
-			BX_FREE(g_allocator, _uniformBuffer);
+			bx::free(g_allocator, _uniformBuffer);
 		}
 
-		static void update(UniformBuffer** _uniformBuffer, uint32_t _treshold = 64<<10, uint32_t _grow = 1<<20)
+		static void update(UniformBuffer** _uniformBuffer, uint32_t _threshold = 64<<10, uint32_t _grow = 1<<20)
 		{
 			UniformBuffer* uniformBuffer = *_uniformBuffer;
-			if (_treshold >= uniformBuffer->m_size - uniformBuffer->m_pos)
+			if (_threshold >= uniformBuffer->m_size - uniformBuffer->m_pos)
 			{
 				const uint32_t structSize = sizeof(UniformBuffer)-sizeof(UniformBuffer::m_buffer);
 				uint32_t size = bx::alignUp(uniformBuffer->m_size + _grow, 16);
-				void*    data = BX_REALLOC(g_allocator, uniformBuffer, size+structSize);
+				void*    data = bx::realloc(g_allocator, uniformBuffer, size+structSize);
 				uniformBuffer = reinterpret_cast<UniformBuffer*>(data);
 				uniformBuffer->m_size = size;
 
@@ -1397,7 +1509,7 @@ namespace bgfx
 			}
 		}
 
-		static uint32_t encodeOpcode(UniformType::Enum _type, uint16_t _loc, uint16_t _num, uint16_t _copy)
+		static uint32_t encodeOpcode(uint8_t _type, uint16_t _loc, uint16_t _num, uint16_t _copy)
 		{
 			const uint32_t type = _type << kConstantOpcodeTypeShift;
 			const uint32_t loc  = _loc  << kConstantOpcodeLocShift;
@@ -1406,14 +1518,14 @@ namespace bgfx
 			return type|loc|num|copy;
 		}
 
-		static void decodeOpcode(uint32_t _opcode, UniformType::Enum& _type, uint16_t& _loc, uint16_t& _num, uint16_t& _copy)
+		static void decodeOpcode(uint32_t _opcode, uint8_t& _type, uint16_t& _loc, uint16_t& _num, uint16_t& _copy)
 		{
 			const uint32_t type = (_opcode&kConstantOpcodeTypeMask) >> kConstantOpcodeTypeShift;
 			const uint32_t loc  = (_opcode&kConstantOpcodeLocMask ) >> kConstantOpcodeLocShift;
 			const uint32_t num  = (_opcode&kConstantOpcodeNumMask ) >> kConstantOpcodeNumShift;
 			const uint32_t copy = (_opcode&kConstantOpcodeCopyMask); // >> kConstantOpcodeCopyShift;
 
-			_type = (UniformType::Enum)(type);
+			_type = (uint8_t )type;
 			_copy = (uint16_t)copy;
 			_num  = (uint16_t)num;
 			_loc  = (uint16_t)loc;
@@ -1472,8 +1584,8 @@ namespace bgfx
 		}
 
 		void writeUniform(UniformType::Enum _type, uint16_t _loc, const void* _value, uint16_t _num = 1);
-		void writeUniformHandle(UniformType::Enum _type, uint16_t _loc, UniformHandle _handle, uint16_t _num = 1);
-		void writeMarker(const char* _marker);
+		void writeUniformHandle(uint8_t _type, uint16_t _loc, UniformHandle _handle, uint16_t _num = 1);
+		void writeMarker(const bx::StringView& _name);
 
 	private:
 		UniformBuffer(uint32_t _size)
@@ -1489,7 +1601,7 @@ namespace bgfx
 
 		uint32_t m_size;
 		uint32_t m_pos;
-		char m_buffer[256<<20];
+		char     m_buffer[256<<20];
 	};
 
 	struct UniformRegInfo
@@ -1567,14 +1679,14 @@ namespace bgfx
 	{
 		void clear()
 		{
-			m_startVertex       = 0;
-			m_handle.idx        = kInvalidHandle;
-			m_layoutHandle.idx  = kInvalidHandle;
+			m_startVertex      = 0;
+			m_handle.idx       = kInvalidHandle;
+			m_layoutHandle.idx = kInvalidHandle;
 		}
 
 		uint32_t           m_startVertex;
 		VertexBufferHandle m_handle;
-		VertexLayoutHandle   m_layoutHandle;
+		VertexLayoutHandle m_layoutHandle;
 	};
 
 	BX_ALIGN_DECL_CACHE_LINE(struct) RenderBind
@@ -1589,6 +1701,9 @@ namespace bgfx
 					bind.m_idx = kInvalidHandle;
 					bind.m_type = 0;
 					bind.m_samplerFlags = 0;
+					bind.m_format = 0;
+					bind.m_access = 0;
+					bind.m_mip = 0;
 				}
 			}
 		};
@@ -1638,13 +1753,19 @@ namespace bgfx
 				m_startIndex      = 0;
 				m_numIndices      = UINT32_MAX;
 				m_indexBuffer.idx = kInvalidHandle;
+				m_submitFlags     = 0;
+			}
+			else
+			{
+				m_submitFlags = isIndex16() ? 0 : BGFX_SUBMIT_INTERNAL_INDEX32;
 			}
 
-			m_submitFlags   = 0;
-			m_startIndirect = 0;
-			m_numIndirect   = UINT16_MAX;
-			m_indirectBuffer.idx = kInvalidHandle;
-			m_occlusionQuery.idx = kInvalidHandle;
+			m_startIndirect    = 0;
+			m_numIndirect      = UINT32_MAX;
+			m_numIndirectIndex = 0;
+			m_indirectBuffer.idx    = kInvalidHandle;
+			m_numIndirectBuffer.idx = kInvalidHandle;
+			m_occlusionQuery.idx    = kInvalidHandle;
 		}
 
 		bool setStreamBit(uint8_t _stream, VertexBufferHandle _handle)
@@ -1654,6 +1775,11 @@ namespace bgfx
 			const uint8_t tmp  = isValid(_handle) ? bit : 0;
 			m_streamMask = mask | tmp;
 			return 0 != tmp;
+		}
+
+		bool isIndex16() const
+		{
+			return 0 == (m_submitFlags & BGFX_SUBMIT_INTERNAL_INDEX32);
 		}
 
 		Stream   m_stream[BGFX_CONFIG_MAX_VERTEX_STREAMS];
@@ -1668,9 +1794,10 @@ namespace bgfx
 		uint32_t m_numVertices;
 		uint32_t m_instanceDataOffset;
 		uint32_t m_numInstances;
+		uint32_t m_startIndirect;
+		uint32_t m_numIndirect;
+		uint32_t m_numIndirectIndex;
 		uint16_t m_instanceDataStride;
-		uint16_t m_startIndirect;
-		uint16_t m_numIndirect;
 		uint16_t m_numMatrices;
 		uint16_t m_scissor;
 		uint8_t  m_submitFlags;
@@ -1680,6 +1807,7 @@ namespace bgfx
 		IndexBufferHandle    m_indexBuffer;
 		VertexBufferHandle   m_instanceDataBuffer;
 		IndirectBufferHandle m_indirectBuffer;
+		IndexBufferHandle    m_numIndirectBuffer;
 		OcclusionQueryHandle m_occlusionQuery;
 	};
 
@@ -1706,7 +1834,7 @@ namespace bgfx
 			m_submitFlags        = 0;
 			m_indirectBuffer.idx = kInvalidHandle;
 			m_startIndirect      = 0;
-			m_numIndirect        = UINT16_MAX;
+			m_numIndirect        = UINT32_MAX;
 		}
 
 		uint32_t m_uniformBegin;
@@ -1717,8 +1845,8 @@ namespace bgfx
 		uint32_t m_numX;
 		uint32_t m_numY;
 		uint32_t m_numZ;
-		uint16_t m_startIndirect;
-		uint16_t m_numIndirect;
+		uint32_t m_startIndirect;
+		uint32_t m_numIndirect;
 		uint16_t m_numMatrices;
 		uint8_t  m_submitFlags;
 		uint8_t  m_uniformIdx;
@@ -1743,14 +1871,15 @@ namespace bgfx
 		uint16_t m_depth;
 		uint8_t  m_srcMip;
 		uint8_t  m_dstMip;
-		TextureHandle m_src;
-		TextureHandle m_dst;
+		Handle m_src;
+		Handle m_dst;
 	};
 
 	struct IndexBuffer
 	{
 		String   m_name;
 		uint32_t m_size;
+		uint16_t m_flags;
 	};
 
 	struct VertexBuffer
@@ -1762,6 +1891,15 @@ namespace bgfx
 
 	struct DynamicIndexBuffer
 	{
+		void reset()
+		{
+			m_handle     = BGFX_INVALID_HANDLE;
+			m_offset     = 0;
+			m_size       = 0;
+			m_startIndex = 0;
+			m_flags      = 0;
+		}
+
 		IndexBufferHandle m_handle;
 		uint32_t m_offset;
 		uint32_t m_size;
@@ -1771,6 +1909,18 @@ namespace bgfx
 
 	struct DynamicVertexBuffer
 	{
+		void reset()
+		{
+			m_handle       = BGFX_INVALID_HANDLE;
+			m_offset       = 0;
+			m_size         = 0;
+			m_startVertex  = 0;
+			m_numVertices  = 0;
+			m_stride       = 0;
+			m_layoutHandle = BGFX_INVALID_HANDLE;
+			m_flags        = 0;
+		}
+
 		VertexBufferHandle m_handle;
 		uint32_t m_offset;
 		uint32_t m_size;
@@ -1810,43 +1960,84 @@ namespace bgfx
 	{
 		void init(
 			  BackbufferRatio::Enum _ratio
+			, uint16_t _width
+			, uint16_t _height
+			, uint16_t _depth
 			, TextureFormat::Enum _format
 			, uint32_t _storageSize
 			, uint8_t _numMips
 			, uint16_t _numLayers
 			, bool _ptrPending
 			, bool _immutable
-			, bool _rt
+			, bool _cubeMap
+			, uint64_t _flags
 			)
 		{
 			m_ptr         = _ptrPending ? (void*)UINTPTR_MAX : NULL;
 			m_storageSize = _storageSize;
 			m_refCount    = 1;
 			m_bbRatio     = uint8_t(_ratio);
+			m_width       = _width;
+			m_height      = _height;
+			m_depth       = _depth;
 			m_format      = uint8_t(_format);
+			m_numSamples  = 1 << bx::uint32_satsub( (_flags & BGFX_TEXTURE_RT_MSAA_MASK) >> BGFX_TEXTURE_RT_MSAA_SHIFT, 1);
 			m_numMips     = _numMips;
 			m_numLayers   = _numLayers;
 			m_owned       = false;
 			m_immutable   = _immutable;
-			m_rt          = _rt;
+			m_cubeMap     = _cubeMap;
+			m_flags       = _flags;
+		}
+
+		bool isRt() const
+		{
+			return 0 != (m_flags & BGFX_TEXTURE_RT_MASK);
+		}
+
+		bool isReadBack() const
+		{
+			return 0 != (m_flags & BGFX_TEXTURE_READ_BACK);
+		}
+
+		bool isBlitDst() const
+		{
+			return 0 != (m_flags & BGFX_TEXTURE_BLIT_DST);
+		}
+
+		bool isCubeMap() const
+		{
+			return m_cubeMap;
+		}
+
+		bool is3D() const
+		{
+			return 0 < m_depth;
 		}
 
 		String   m_name;
 		void*    m_ptr;
+		uint64_t m_flags;
 		uint32_t m_storageSize;
 		int16_t  m_refCount;
 		uint8_t  m_bbRatio;
+		uint16_t m_width;
+		uint16_t m_height;
+		uint16_t m_depth;
 		uint8_t  m_format;
+		uint8_t  m_numSamples;
 		uint8_t  m_numMips;
 		uint16_t m_numLayers;
 		bool     m_owned;
 		bool     m_immutable;
-		bool     m_rt;
+		bool     m_cubeMap;
 	};
 
 	struct FrameBufferRef
 	{
 		String m_name;
+		uint16_t m_width;
+		uint16_t m_height;
 
 		union un
 		{
@@ -1959,11 +2150,18 @@ namespace bgfx
 		RectCache m_rectCache;
 	};
 
+	struct ScreenShot
+	{
+		bx::FilePath filePath;
+		FrameBufferHandle handle;
+	};
+
 	BX_ALIGN_DECL_CACHE_LINE(struct) Frame
 	{
 		Frame()
 			: m_waitSubmit(0)
 			, m_waitRender(0)
+			, m_frameNum(0)
 			, m_capture(false)
 		{
 			SortKey term;
@@ -1974,6 +2172,8 @@ namespace bgfx
 			bx::memSet(m_occlusion, 0xff, sizeof(m_occlusion) );
 
 			m_perfStats.viewStats = m_viewStats;
+
+			bx::memSet(&m_renderItemBind[0], 0, sizeof(m_renderItemBind));
 		}
 
 		~Frame()
@@ -1988,7 +2188,7 @@ namespace bgfx
 			{
 				const uint32_t num = g_caps.limits.maxEncoders;
 
-				m_uniformBuffer = (UniformBuffer**)BX_ALLOC(g_allocator, sizeof(UniformBuffer*)*num);
+				m_uniformBuffer = (UniformBuffer**)bx::alloc(g_allocator, sizeof(UniformBuffer*)*num);
 
 				for (uint32_t ii = 0; ii < num; ++ii)
 				{
@@ -1997,7 +2197,7 @@ namespace bgfx
 			}
 
 			reset();
-			start();
+			start(0);
 			m_textVideoMem = BX_NEW(g_allocator, TextVideoMem);
 		}
 
@@ -2008,18 +2208,18 @@ namespace bgfx
 				UniformBuffer::destroy(m_uniformBuffer[ii]);
 			}
 
-			BX_FREE(g_allocator, m_uniformBuffer);
-			BX_DELETE(g_allocator, m_textVideoMem);
+			bx::free(g_allocator, m_uniformBuffer);
+			bx::deleteObject(g_allocator, m_textVideoMem);
 		}
 
 		void reset()
 		{
-			start();
+			start(0);
 			finish();
 			resetFreeHandles();
 		}
 
-		void start()
+		void start(uint32_t frameNum)
 		{
 			m_perfStats.transientVbUsed = m_vboffset;
 			m_perfStats.transientIbUsed = m_iboffset;
@@ -2032,39 +2232,32 @@ namespace bgfx
 			m_cmdPre.start();
 			m_cmdPost.start();
 			m_capture = false;
+			m_numScreenShots = 0;
+			m_frameNum = frameNum;
 		}
 
 		void finish()
 		{
 			m_cmdPre.finish();
 			m_cmdPost.finish();
-
-//			if (0 < m_numDropped)
-//			{
-//				BX_TRACE("Too many draw calls: %d, dropped %d (max: %d)"
-//					, m_numRenderItems+m_numDropped
-//					, m_numDropped
-//					, BGFX_CONFIG_MAX_DRAW_CALLS
-//					);
-//			}
 		}
 
 		void sort();
 
-		uint32_t getAvailTransientIndexBuffer(uint32_t _num)
+		uint32_t getAvailTransientIndexBuffer(uint32_t _num, uint16_t _indexSize)
 		{
-			uint32_t offset   = bx::strideAlign(m_iboffset, sizeof(uint16_t) );
-			uint32_t iboffset = offset + _num*sizeof(uint16_t);
+			const uint32_t offset = bx::strideAlign(m_iboffset, _indexSize);
+			uint32_t iboffset = offset + _num*_indexSize;
 			iboffset = bx::min<uint32_t>(iboffset, g_caps.limits.transientIbSize);
-			uint32_t num = (iboffset-offset)/sizeof(uint16_t);
+			const uint32_t num = (iboffset-offset)/_indexSize;
 			return num;
 		}
 
-		uint32_t allocTransientIndexBuffer(uint32_t& _num)
+		uint32_t allocTransientIndexBuffer(uint32_t& _num, uint16_t _indexSize)
 		{
-			uint32_t offset = bx::strideAlign(m_iboffset, sizeof(uint16_t) );
-			uint32_t num    = getAvailTransientIndexBuffer(_num);
-			m_iboffset = offset + num*sizeof(uint16_t);
+			uint32_t offset = bx::strideAlign(m_iboffset, _indexSize);
+			uint32_t num    = getAvailTransientIndexBuffer(_num, _indexSize);
+			m_iboffset = offset + num*_indexSize;
 			_num = num;
 
 			return offset;
@@ -2170,6 +2363,9 @@ namespace bgfx
 		Resolution m_resolution;
 		uint32_t m_debug;
 
+		ScreenShot m_screenShot[BGFX_CONFIG_MAX_SCREENSHOTS];
+		uint8_t m_numScreenShots;
+
 		CommandBuffer m_cmdPre;
 		CommandBuffer m_cmdPost;
 
@@ -2246,6 +2442,8 @@ namespace bgfx
 		int64_t m_waitSubmit;
 		int64_t m_waitRender;
 
+		uint32_t m_frameNum;
+
 		bool m_capture;
 	};
 
@@ -2253,6 +2451,13 @@ namespace bgfx
 	{
 		EncoderImpl()
 		{
+			// Although it will be cleared by the discard(), the fact that the
+			// struct is padded to have a size equal to the cache line size,
+			// will leaves bytes uninitialized. This will influence the hashing
+			// as it reads those bytes too. To make this deterministic, we will
+			// clear all bytes (inclusively the padding) before we start.
+			bx::memSet(&m_bind, 0, sizeof(m_bind));
+
 			discard(BGFX_DISCARD_ALL);
 		}
 
@@ -2294,8 +2499,9 @@ namespace bgfx
 			}
 		}
 
-		void setMarker(const char* _name)
+		void setMarker(const bx::StringView& _name)
 		{
+			UniformBuffer::update(&m_frame->m_uniformBuffer[m_uniformIdx]);
 			UniformBuffer* uniformBuffer = m_frame->m_uniformBuffer[m_uniformIdx];
 			uniformBuffer->writeMarker(_name);
 		}
@@ -2309,7 +2515,7 @@ namespace bgfx
 					, _handle.idx
 					, getName(_handle)
 					);
-				m_uniformSet.insert(_handle.idx);
+//				m_uniformSet.insert(_handle.idx);
 			}
 
 			UniformBuffer::update(&m_frame->m_uniformBuffer[m_uniformIdx]);
@@ -2319,12 +2525,30 @@ namespace bgfx
 
 		void setState(uint64_t _state, uint32_t _rgba)
 		{
-			uint8_t blend = ( (_state&BGFX_STATE_BLEND_MASK)>>BGFX_STATE_BLEND_SHIFT)&0xff;
-			uint8_t alphaRef = ( (_state&BGFX_STATE_ALPHA_REF_MASK)>>BGFX_STATE_ALPHA_REF_SHIFT)&0xff;
-			// transparency sort order table
+			const uint8_t blend    = ( (_state&BGFX_STATE_BLEND_MASK    )>>BGFX_STATE_BLEND_SHIFT    )&0xff;
+			const uint8_t alphaRef = ( (_state&BGFX_STATE_ALPHA_REF_MASK)>>BGFX_STATE_ALPHA_REF_SHIFT)&0xff;
+
+			// Transparency sort order table:
+			//
+			//                    +----------------------------------------- BGFX_STATE_BLEND_ZERO
+			//                    |  +-------------------------------------- BGFX_STATE_BLEND_ONE
+			//                    |  |  +----------------------------------- BGFX_STATE_BLEND_SRC_COLOR
+			//                    |  |  |  +-------------------------------- BGFX_STATE_BLEND_INV_SRC_COLOR
+			//                    |  |  |  |  +----------------------------- BGFX_STATE_BLEND_SRC_ALPHA
+			//                    |  |  |  |  |  +-------------------------- BGFX_STATE_BLEND_INV_SRC_ALPHA
+			//                    |  |  |  |  |  |  +----------------------- BGFX_STATE_BLEND_DST_ALPHA
+			//                    |  |  |  |  |  |  |  +-------------------- BGFX_STATE_BLEND_INV_DST_ALPHA
+			//                    |  |  |  |  |  |  |  |  +----------------- BGFX_STATE_BLEND_DST_COLOR
+			//                    |  |  |  |  |  |  |  |  |  +-------------- BGFX_STATE_BLEND_INV_DST_COLOR
+			//                    |  |  |  |  |  |  |  |  |  |  +----------- BGFX_STATE_BLEND_SRC_ALPHA_SAT
+			//                    |  |  |  |  |  |  |  |  |  |  |  +-------- BGFX_STATE_BLEND_FACTOR
+			//                    |  |  |  |  |  |  |  |  |  |  |  |  +----- BGFX_STATE_BLEND_INV_FACTOR
+			//                    |  |  |  |  |  |  |  |  |  |  |  |  |
+			//                 x  |  |  |  |  |  |  |  |  |  |  |  |  |  x  x  x  x  x
 			m_key.m_blend = "\x0\x2\x2\x3\x3\x2\x3\x2\x3\x2\x2\x2\x2\x2\x2\x2\x2\x2\x2"[( (blend)&0xf) + (!!blend)] + !!alphaRef;
+
 			m_draw.m_stateFlags = _state;
-			m_draw.m_rgba = _rgba;
+			m_draw.m_rgba       = _rgba;
 		}
 
 		void setCondition(OcclusionQueryHandle _handle, bool _visible)
@@ -2340,7 +2564,7 @@ namespace bgfx
 
 		uint16_t setScissor(uint16_t _x, uint16_t _y, uint16_t _width, uint16_t _height)
 		{
-			uint16_t scissor = (uint16_t)m_frame->m_frameCache.m_rectCache.add(_x, _y, _width, _height);
+			uint16_t scissor = bx::narrowCast<uint16_t>(m_frame->m_frameCache.m_rectCache.add(_x, _y, _width, _height) );
 			m_draw.m_scissor = scissor;
 			return scissor;
 		}
@@ -2377,31 +2601,35 @@ namespace bgfx
 			m_draw.m_numMatrices = uint16_t(bx::min<uint32_t>(_cache+_num, BGFX_CONFIG_MAX_MATRIX_CACHE-1) - _cache);
 		}
 
-		void setIndexBuffer(IndexBufferHandle _handle, uint32_t _firstIndex, uint32_t _numIndices)
+		void setIndexBuffer(IndexBufferHandle _handle, const IndexBuffer& _ib, uint32_t _firstIndex, uint32_t _numIndices)
 		{
-			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "");
+			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "bgfx::setVertexCount was already called for this draw call.");
 			m_draw.m_startIndex  = _firstIndex;
 			m_draw.m_numIndices  = _numIndices;
 			m_draw.m_indexBuffer = _handle;
+			m_draw.m_submitFlags |= 0 == (_ib.m_flags & BGFX_BUFFER_INDEX32) ? BGFX_SUBMIT_INTERNAL_NONE : BGFX_SUBMIT_INTERNAL_INDEX32;
 		}
 
 		void setIndexBuffer(const DynamicIndexBuffer& _dib, uint32_t _firstIndex, uint32_t _numIndices)
 		{
-			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "");
+			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "bgfx::setVertexCount was already called for this draw call.");
 			const uint32_t indexSize = 0 == (_dib.m_flags & BGFX_BUFFER_INDEX32) ? 2 : 4;
 			m_draw.m_startIndex  = _dib.m_startIndex + _firstIndex;
 			m_draw.m_numIndices  = bx::min(_numIndices, _dib.m_size/indexSize);
 			m_draw.m_indexBuffer = _dib.m_handle;
+			m_draw.m_submitFlags |= 0 == (_dib.m_flags & BGFX_BUFFER_INDEX32) ? BGFX_SUBMIT_INTERNAL_NONE : BGFX_SUBMIT_INTERNAL_INDEX32;
 		}
 
 		void setIndexBuffer(const TransientIndexBuffer* _tib, uint32_t _firstIndex, uint32_t _numIndices)
 		{
-			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "");
-			const uint32_t numIndices = bx::min(_numIndices, _tib->size/2);
+			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "bgfx::setVertexCount was already called for this draw call.");
+			const uint32_t indexSize  = _tib->isIndex16 ? 2 : 4;
+			const uint32_t numIndices = bx::min(_numIndices, _tib->size/indexSize);
 			m_draw.m_indexBuffer = _tib->handle;
 			m_draw.m_startIndex  = _tib->startIndex + _firstIndex;
 			m_draw.m_numIndices  = numIndices;
-			m_discard = 0 == numIndices;
+			m_draw.m_submitFlags |= _tib->isIndex16 ? BGFX_SUBMIT_INTERNAL_NONE : BGFX_SUBMIT_INTERNAL_INDEX32;
+			m_discard            = 0 == numIndices;
 		}
 
 		void setVertexBuffer(
@@ -2412,7 +2640,7 @@ namespace bgfx
 			, VertexLayoutHandle _layoutHandle
 			)
 		{
-			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "");
+			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "bgfx::setVertexCount was already called for this draw call.");
 			BX_ASSERT(_stream < BGFX_CONFIG_MAX_VERTEX_STREAMS, "Invalid stream %d (max %d).", _stream, BGFX_CONFIG_MAX_VERTEX_STREAMS);
 			if (m_draw.setStreamBit(_stream, _handle) )
 			{
@@ -2432,7 +2660,7 @@ namespace bgfx
 			, VertexLayoutHandle _layoutHandle
 			)
 		{
-			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "");
+			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "bgfx::setVertexCount was already called for this draw call.");
 			BX_ASSERT(_stream < BGFX_CONFIG_MAX_VERTEX_STREAMS, "Invalid stream %d (max %d).", _stream, BGFX_CONFIG_MAX_VERTEX_STREAMS);
 			if (m_draw.setStreamBit(_stream, _dvb.m_handle) )
 			{
@@ -2454,7 +2682,7 @@ namespace bgfx
 			, VertexLayoutHandle _layoutHandle
 			)
 		{
-			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "");
+			BX_ASSERT(UINT8_MAX != m_draw.m_streamMask, "bgfx::setVertexCount was already called for this draw call.");
 			BX_ASSERT(_stream < BGFX_CONFIG_MAX_VERTEX_STREAMS, "Invalid stream %d (max %d).", _stream, BGFX_CONFIG_MAX_VERTEX_STREAMS);
 			if (m_draw.setStreamBit(_stream, _tvb->handle) )
 			{
@@ -2510,6 +2738,9 @@ namespace bgfx
 				? BGFX_SAMPLER_INTERNAL_DEFAULT
 				: _flags
 				;
+			bind.m_format = 0;
+			bind.m_access = 0;
+			bind.m_mip    = 0;
 
 			if (isValid(_sampler) )
 			{
@@ -2563,7 +2794,7 @@ namespace bgfx
 
 		void submit(ViewId _id, ProgramHandle _program, OcclusionQueryHandle _occlusionQuery, uint32_t _depth, uint8_t _flags);
 
-		void submit(ViewId _id, ProgramHandle _program, IndirectBufferHandle _indirectHandle, uint16_t _start, uint16_t _num, uint32_t _depth, uint8_t _flags)
+		void submit(ViewId _id, ProgramHandle _program, IndirectBufferHandle _indirectHandle, uint32_t _start, uint32_t _num, uint32_t _depth, uint8_t _flags)
 		{
 			m_draw.m_startIndirect  = _start;
 			m_draw.m_numIndirect    = _num;
@@ -2572,9 +2803,16 @@ namespace bgfx
 			submit(_id, _program, handle, _depth, _flags);
 		}
 
+		void submit(ViewId _id, ProgramHandle _program, IndirectBufferHandle _indirectHandle, uint32_t _start, IndexBufferHandle _numHandle, uint32_t _numIndex, uint32_t _numMax, uint32_t _depth, uint8_t _flags)
+		{
+			m_draw.m_numIndirectIndex  = _numIndex;
+			m_draw.m_numIndirectBuffer = _numHandle;
+			submit(_id, _program, _indirectHandle, _start, _numMax, _depth, _flags);
+		}
+
 		void dispatch(ViewId _id, ProgramHandle _handle, uint32_t _ngx, uint32_t _ngy, uint32_t _ngz, uint8_t _flags);
 
-		void dispatch(ViewId _id, ProgramHandle _handle, IndirectBufferHandle _indirectHandle, uint16_t _start, uint16_t _num, uint8_t _flags)
+		void dispatch(ViewId _id, ProgramHandle _handle, IndirectBufferHandle _indirectHandle, uint32_t _start, uint32_t _num, uint8_t _flags)
 		{
 			m_compute.m_indirectBuffer = _indirectHandle;
 			m_compute.m_startIndirect  = _start;
@@ -2617,7 +2855,7 @@ namespace bgfx
 
 		void init()
 		{
-			bx::memSet(m_vertexLayoutRef,           0, sizeof(m_vertexLayoutRef)        );
+			bx::memSet(m_refCount,                  0, sizeof(m_refCount)               );
 			bx::memSet(m_vertexBufferRef,        0xff, sizeof(m_vertexBufferRef)        );
 			bx::memSet(m_dynamicVertexBufferRef, 0xff, sizeof(m_dynamicVertexBufferRef) );
 		}
@@ -2628,7 +2866,7 @@ namespace bgfx
 			for (uint16_t ii = 0, num = _handleAlloc.getNumHandles(); ii < num; ++ii)
 			{
 				VertexLayoutHandle handle = { _handleAlloc.getHandleAt(ii) };
-				m_vertexLayoutRef[handle.idx] = 0;
+				m_refCount[handle.idx] = 0;
 				m_vertexLayoutMap.removeByHandle(handle.idx);
 				_handleAlloc.free(handle.idx);
 			}
@@ -2644,7 +2882,7 @@ namespace bgfx
 
 		void add(VertexLayoutHandle _layoutHandle, uint32_t _hash)
 		{
-			m_vertexLayoutRef[_layoutHandle.idx]++;
+			m_refCount[_layoutHandle.idx]++;
 			m_vertexLayoutMap.insert(_hash, _layoutHandle.idx);
 		}
 
@@ -2652,7 +2890,7 @@ namespace bgfx
 		{
 			BX_ASSERT(m_vertexBufferRef[_handle.idx].idx == kInvalidHandle, "");
 			m_vertexBufferRef[_handle.idx] = _layoutHandle;
-			m_vertexLayoutRef[_layoutHandle.idx]++;
+			m_refCount[_layoutHandle.idx]++;
 			m_vertexLayoutMap.insert(_hash, _layoutHandle.idx);
 		}
 
@@ -2660,7 +2898,7 @@ namespace bgfx
 		{
 			BX_ASSERT(m_dynamicVertexBufferRef[_handle.idx].idx == kInvalidHandle, "");
 			m_dynamicVertexBufferRef[_handle.idx] = _layoutHandle;
-			m_vertexLayoutRef[_layoutHandle.idx]++;
+			m_refCount[_layoutHandle.idx]++;
 			m_vertexLayoutMap.insert(_hash, _layoutHandle.idx);
 		}
 
@@ -2668,9 +2906,9 @@ namespace bgfx
 		{
 			if (isValid(_layoutHandle) )
 			{
-				m_vertexLayoutRef[_layoutHandle.idx]--;
+				m_refCount[_layoutHandle.idx]--;
 
-				if (0 == m_vertexLayoutRef[_layoutHandle.idx])
+				if (0 == m_refCount[_layoutHandle.idx])
 				{
 					m_vertexLayoutMap.removeByHandle(_layoutHandle.idx);
 					return _layoutHandle;
@@ -2701,7 +2939,7 @@ namespace bgfx
 		typedef bx::HandleHashMapT<BGFX_CONFIG_MAX_VERTEX_LAYOUTS*2> VertexLayoutMap;
 		VertexLayoutMap m_vertexLayoutMap;
 
-		uint16_t m_vertexLayoutRef[BGFX_CONFIG_MAX_VERTEX_LAYOUTS];
+		uint16_t m_refCount[BGFX_CONFIG_MAX_VERTEX_LAYOUTS];
 		VertexLayoutHandle m_vertexBufferRef[BGFX_CONFIG_MAX_VERTEX_BUFFERS];
 		VertexLayoutHandle m_dynamicVertexBufferRef[BGFX_CONFIG_MAX_DYNAMIC_VERTEX_BUFFERS];
 	};
@@ -2872,7 +3110,7 @@ namespace bgfx
 		virtual void updateViewName(ViewId _id, const char* _name) = 0;
 		virtual void updateUniform(uint16_t _loc, const void* _data, uint32_t _size) = 0;
 		virtual void invalidateOcclusionQuery(OcclusionQueryHandle _handle) = 0;
-		virtual void setMarker(const char* _marker, uint16_t _len) = 0;
+		virtual void setMarker(const char* _name, uint16_t _len) = 0;
 		virtual void setName(Handle _handle, const char* _name, uint16_t _len) = 0;
 		virtual void submit(Frame* _render, ClearQuad& _clearQuad, TextVideoMemBlitter& _textVideoMemBlitter) = 0;
 		virtual void blitSetup(TextVideoMemBlitter& _blitter) = 0;
@@ -2901,14 +3139,13 @@ namespace bgfx
 			, m_numFreeDynamicIndexBufferHandles(0)
 			, m_numFreeDynamicVertexBufferHandles(0)
 			, m_numFreeOcclusionQueryHandles(0)
-			, m_colorPaletteDirty(0)
+			, m_colorPaletteDirty(2)
 			, m_frames(0)
 			, m_debug(BGFX_DEBUG_NONE)
 			, m_rtMemoryUsed(0)
 			, m_textureMemoryUsed(0)
 			, m_renderCtx(NULL)
-			, m_renderMain(NULL)
-			, m_renderNoop(NULL)
+			, m_headless(false)
 			, m_rendererInitialized(false)
 			, m_exit(false)
 			, m_flipAfterRender(false)
@@ -2945,6 +3182,46 @@ namespace bgfx
 
 		BGFX_API_FUNC(void reset(uint32_t _width, uint32_t _height, uint32_t _flags, TextureFormat::Enum _format) )
 		{
+			BGFX_MUTEX_SCOPE(m_resourceApiLock);
+
+			BX_ASSERT(false
+				|| !m_headless
+				|| 0 == _width
+				|| 0 == _height
+				, "Running in headless mode, resolution of non-existing backbuffer can't be larger than 0x0!"
+				);
+
+			const TextureFormat::Enum format = TextureFormat::Count != _format ? _format : m_init.resolution.format;
+
+			if (!g_platformDataChangedSinceReset
+			&&  m_init.resolution.format == format
+			&&  m_init.resolution.width  == _width
+			&&  m_init.resolution.height == _height
+			&&  m_init.resolution.reset  == _flags)
+			{
+				// Nothing changed, ignore request.
+				return;
+			}
+
+			const uint32_t maskFlags = ~(0
+				| (0 != (g_caps.supported & BGFX_CAPS_TRANSPARENT_BACKBUFFER) ? 0 : BGFX_RESET_TRANSPARENT_BACKBUFFER)
+				| (0 != (g_caps.supported & BGFX_CAPS_HDR10)                  ? 0 : BGFX_RESET_HDR10)
+				| (0 != (g_caps.supported & BGFX_CAPS_HIDPI)                  ? 0 : BGFX_RESET_HIDPI)
+				);
+			const uint32_t oldFlags = _flags;
+			_flags &= maskFlags;
+
+#define WARN_RESET_CAPS_FLAGS(_name) \
+	BX_WARN( (oldFlags&(BGFX_RESET_##_name) ) == (_flags&(BGFX_RESET_##_name) ) \
+		, "Reset flag `BGFX_RESET_" #_name "` will be ignored, because `BGFX_CAPS_" #_name "` is not supported." \
+		)
+			WARN_RESET_CAPS_FLAGS(TRANSPARENT_BACKBUFFER);
+			WARN_RESET_CAPS_FLAGS(HDR10);
+			WARN_RESET_CAPS_FLAGS(HIDPI);
+
+#undef WARN_RESET_CAPS_FLAGS
+			BX_UNUSED(oldFlags);
+
 			BX_WARN(g_caps.limits.maxTextureSize >= _width
 				&&  g_caps.limits.maxTextureSize >= _height
 				, "Frame buffer resolution width or height can't be larger than limits.maxTextureSize %d (width %d, height %d)."
@@ -2952,13 +3229,14 @@ namespace bgfx
 				, _width
 				, _height
 				);
-			m_init.resolution.format = TextureFormat::Count != _format ? _format : m_init.resolution.format;
+			m_init.resolution.format = format;
 			m_init.resolution.width  = bx::clamp(_width,  1u, g_caps.limits.maxTextureSize);
 			m_init.resolution.height = bx::clamp(_height, 1u, g_caps.limits.maxTextureSize);
 			m_init.resolution.reset  = 0
 				| _flags
 				| (g_platformDataChangedSinceReset ? BGFX_RESET_INTERNAL_FORCE : 0)
 				;
+			dump(m_init.resolution);
 			g_platformDataChangedSinceReset = false;
 
 			m_flipAfterRender = !!(_flags & BGFX_RESET_FLIP_AFTER_RENDER);
@@ -2971,15 +3249,15 @@ namespace bgfx
 			for (uint16_t ii = 0, num = m_textureHandle.getNumHandles(); ii < num; ++ii)
 			{
 				uint16_t textureIdx = m_textureHandle.getHandleAt(ii);
-				const TextureRef& textureRef = m_textureRef[textureIdx];
-				if (BackbufferRatio::Count != textureRef.m_bbRatio)
+				const TextureRef& ref = m_textureRef[textureIdx];
+				if (BackbufferRatio::Count != ref.m_bbRatio)
 				{
 					TextureHandle handle = { textureIdx };
 					resizeTexture(handle
 						, uint16_t(m_init.resolution.width)
 						, uint16_t(m_init.resolution.height)
-						, textureRef.m_numMips
-						, textureRef.m_numLayers
+						, ref.m_numMips
+						, ref.m_numLayers
 						);
 					m_init.resolution.reset |= BGFX_RESET_INTERNAL_FORCE;
 				}
@@ -2995,7 +3273,12 @@ namespace bgfx
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			m_submit->m_textVideoMem->resize(_small, (uint16_t)m_init.resolution.width, (uint16_t)m_init.resolution.height);
+			const uint8_t debugTextScale = m_init.resolution.debugTextScale;
+			m_submit->m_textVideoMem->resize(
+				  _small
+				, (uint16_t)m_init.resolution.width  / debugTextScale
+				, (uint16_t)m_init.resolution.height / debugTextScale
+				);
 			m_submit->m_textVideoMem->clear(_attr);
 		}
 
@@ -3054,14 +3337,15 @@ namespace bgfx
 			if (isValid(handle) )
 			{
 				IndexBuffer& ib = m_indexBuffers[handle.idx];
-				ib.m_size = _mem->size;
+				ib.m_size  = _mem->size;
+				ib.m_flags = _flags;
 
 				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateIndexBuffer);
 				cmdbuf.write(handle);
 				cmdbuf.write(_mem);
 				cmdbuf.write(_flags);
 
-				setDebugName(convert(handle) );
+				setDebugNameForHandle(handle);
 			}
 			else
 			{
@@ -3080,7 +3364,7 @@ namespace bgfx
 			IndexBuffer& ref = m_indexBuffers[_handle.idx];
 			ref.m_name.set(_name);
 
-			setName(convert(_handle), _name);
+			setNameForHandle(_handle, _name);
 		}
 
 		BGFX_API_FUNC(void destroyIndexBuffer(IndexBufferHandle _handle) )
@@ -3098,21 +3382,29 @@ namespace bgfx
 			cmdbuf.write(_handle);
 		}
 
-		VertexLayoutHandle findVertexLayout(const VertexLayout& _layout)
+		VertexLayoutHandle findOrCreateVertexLayout(const VertexLayout& _layout, bool _refCountOnCreation = false)
 		{
 			VertexLayoutHandle layoutHandle = m_vertexLayoutRef.find(_layout.m_hash);
 
+			if (isValid(layoutHandle) )
+			{
+				return layoutHandle;
+			}
+
+			layoutHandle = { m_layoutHandle.alloc() };
 			if (!isValid(layoutHandle) )
 			{
-				layoutHandle.idx = m_layoutHandle.alloc();
-				if (!isValid(layoutHandle) )
-				{
-					return layoutHandle;
-				}
+				BX_TRACE("WARNING: Failed to allocate vertex layout handle (BGFX_CONFIG_MAX_VERTEX_LAYOUTS, max: %d).", BGFX_CONFIG_MAX_VERTEX_LAYOUTS);
+				return BGFX_INVALID_HANDLE;
+			}
 
-				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateVertexLayout);
-				cmdbuf.write(layoutHandle);
-				cmdbuf.write(_layout);
+			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateVertexLayout);
+			cmdbuf.write(layoutHandle);
+			cmdbuf.write(_layout);
+
+			if (_refCountOnCreation)
+			{
+				m_vertexLayoutRef.add(layoutHandle, _layout.m_hash);
 			}
 
 			return layoutHandle;
@@ -3122,10 +3414,9 @@ namespace bgfx
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			VertexLayoutHandle handle = findVertexLayout(_layout);
+			VertexLayoutHandle handle = findOrCreateVertexLayout(_layout);
 			if (!isValid(handle) )
 			{
-				BX_TRACE("WARNING: Failed to allocate vertex layout handle (BGFX_CONFIG_MAX_VERTEX_LAYOUTS, max: %d).", BGFX_CONFIG_MAX_VERTEX_LAYOUTS);
 				return BGFX_INVALID_HANDLE;
 			}
 
@@ -3137,7 +3428,10 @@ namespace bgfx
 		BGFX_API_FUNC(void destroyVertexLayout(VertexLayoutHandle _handle) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
-			m_vertexLayoutRef.release(_handle);
+			if (isValid(m_vertexLayoutRef.release(_handle) ) )
+			{
+				m_submit->free(_handle);
+			}
 		}
 
 		BGFX_API_FUNC(VertexBufferHandle createVertexBuffer(const Memory* _mem, const VertexLayout& _layout, uint16_t _flags) )
@@ -3148,7 +3442,7 @@ namespace bgfx
 
 			if (isValid(handle) )
 			{
-				VertexLayoutHandle layoutHandle = findVertexLayout(_layout);
+				VertexLayoutHandle layoutHandle = findOrCreateVertexLayout(_layout);
 				if (!isValid(layoutHandle) )
 				{
 					BX_TRACE("WARNING: Failed to allocate vertex layout handle (BGFX_CONFIG_MAX_VERTEX_LAYOUTS, max: %d).", BGFX_CONFIG_MAX_VERTEX_LAYOUTS);
@@ -3168,7 +3462,7 @@ namespace bgfx
 				cmdbuf.write(layoutHandle);
 				cmdbuf.write(_flags);
 
-				setDebugName(convert(handle) );
+				setDebugNameForHandle(handle);
 
 				return handle;
 			}
@@ -3188,7 +3482,7 @@ namespace bgfx
 			VertexBuffer& ref = m_vertexBuffers[_handle.idx];
 			ref.m_name.set(_name);
 
-			setName(convert(_handle), _name);
+			setNameForHandle(_handle, _name);
 		}
 
 		BGFX_API_FUNC(void destroyVertexBuffer(VertexBufferHandle _handle) )
@@ -3225,13 +3519,13 @@ namespace bgfx
 			if (ptr == NonLocalAllocator::kInvalidBlock)
 			{
 				IndexBufferHandle indexBufferHandle = { m_indexBufferHandle.alloc() };
-				BX_WARN(isValid(indexBufferHandle), "Failed to allocate index buffer handle.");
 				if (!isValid(indexBufferHandle) )
 				{
+					BX_TRACE("Failed to allocate index buffer handle.");
 					return NonLocalAllocator::kInvalidBlock;
 				}
 
-				const uint32_t allocSize = bx::max<uint32_t>(BGFX_CONFIG_DYNAMIC_INDEX_BUFFER_SIZE, _size);
+				const uint32_t allocSize = bx::max<uint32_t>(BGFX_CONFIG_DYNAMIC_INDEX_BUFFER_SIZE, bx::alignUp(_size, 1<<20) );
 
 				IndexBuffer& ib = m_indexBuffers[indexBufferHandle.idx];
 				ib.m_size = allocSize;
@@ -3248,50 +3542,51 @@ namespace bgfx
 			return ptr;
 		}
 
+		uint64_t allocIndexBuffer(uint32_t _size, uint16_t _flags)
+		{
+			IndexBufferHandle indexBufferHandle = { m_indexBufferHandle.alloc() };
+			if (!isValid(indexBufferHandle) )
+			{
+				BX_TRACE("Failed to allocate index buffer handle.");
+				return NonLocalAllocator::kInvalidBlock;
+			}
+
+			IndexBuffer& ib = m_indexBuffers[indexBufferHandle.idx];
+			ib.m_size = _size;
+
+			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateDynamicIndexBuffer);
+			cmdbuf.write(indexBufferHandle);
+			cmdbuf.write(_size);
+			cmdbuf.write(_flags);
+
+			setDebugNameForHandle(indexBufferHandle, "Dynamic Index Buffer");
+
+			return uint64_t(indexBufferHandle.idx) << 32;
+		}
+
 		BGFX_API_FUNC(DynamicIndexBufferHandle createDynamicIndexBuffer(uint32_t _num, uint16_t _flags) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
 			DynamicIndexBufferHandle handle = { m_dynamicIndexBufferHandle.alloc() };
-			BX_WARN(isValid(handle), "Failed to allocate dynamic index buffer handle.");
 			if (!isValid(handle) )
 			{
+				BX_TRACE("Failed to allocate dynamic index buffer handle.");
 				return handle;
 			}
 
 			const uint32_t indexSize = 0 == (_flags & BGFX_BUFFER_INDEX32) ? 2 : 4;
 			const uint32_t size = bx::alignUp(_num*indexSize, 16);
 
-			uint64_t ptr = 0;
-			if (0 != (_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
+			const uint64_t ptr = (0 != (_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
+				? allocIndexBuffer(size, _flags)
+				: allocDynamicIndexBuffer(size, _flags)
+				;
+
+			if (ptr == NonLocalAllocator::kInvalidBlock)
 			{
-				IndexBufferHandle indexBufferHandle = { m_indexBufferHandle.alloc() };
-				if (!isValid(indexBufferHandle) )
-				{
-					m_dynamicIndexBufferHandle.free(handle.idx);
-					return BGFX_INVALID_HANDLE;
-				}
-
-				IndexBuffer& ib = m_indexBuffers[indexBufferHandle.idx];
-				ib.m_size = size;
-
-				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateDynamicIndexBuffer);
-				cmdbuf.write(indexBufferHandle);
-				cmdbuf.write(size);
-				cmdbuf.write(_flags);
-
-				setDebugName(convert(indexBufferHandle), "Dynamic Index Buffer");
-
-				ptr = uint64_t(indexBufferHandle.idx) << 32;
-			}
-			else
-			{
-				ptr = allocDynamicIndexBuffer(size, _flags);
-				if (ptr == NonLocalAllocator::kInvalidBlock)
-				{
-					m_dynamicIndexBufferHandle.free(handle.idx);
-					return BGFX_INVALID_HANDLE;
-				}
+				m_dynamicIndexBufferHandle.free(handle.idx);
+				return BGFX_INVALID_HANDLE;
 			}
 
 			DynamicIndexBuffer& dib = m_dynamicIndexBuffers[handle.idx];
@@ -3308,7 +3603,8 @@ namespace bgfx
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			BX_ASSERT(0 == (_flags &  BGFX_BUFFER_COMPUTE_READ_WRITE), "Cannot initialize compute buffer from CPU.");
+			BX_ASSERT(0 == (_flags & BGFX_BUFFER_COMPUTE_WRITE), "Can't initialize compute write buffer from CPU.");
+
 			const uint32_t indexSize = 0 == (_flags & BGFX_BUFFER_INDEX32) ? 2 : 4;
 			DynamicIndexBufferHandle handle = createDynamicIndexBuffer(_mem->size/indexSize, _flags);
 
@@ -3330,16 +3626,19 @@ namespace bgfx
 			BGFX_CHECK_HANDLE("updateDynamicIndexBuffer", m_dynamicIndexBufferHandle, _handle);
 
 			DynamicIndexBuffer& dib = m_dynamicIndexBuffers[_handle.idx];
-			BX_ASSERT(0 == (dib.m_flags &  BGFX_BUFFER_COMPUTE_WRITE), "Can't update GPU buffer from CPU.");
+			BX_ASSERT(0 == (dib.m_flags & BGFX_BUFFER_COMPUTE_WRITE), "Can't update GPU write buffer from CPU.");
 			const uint32_t indexSize = 0 == (dib.m_flags & BGFX_BUFFER_INDEX32) ? 2 : 4;
 
 			if (dib.m_size < _mem->size
 			&&  0 != (dib.m_flags & BGFX_BUFFER_ALLOW_RESIZE) )
 			{
-				m_dynIndexBufferAllocator.free(uint64_t(dib.m_handle.idx)<<32 | dib.m_offset);
-				m_dynIndexBufferAllocator.compact();
+				destroy(dib);
 
-				uint64_t ptr = allocDynamicIndexBuffer(_mem->size, dib.m_flags);
+				const uint64_t ptr = (0 != (dib.m_flags & BGFX_BUFFER_COMPUTE_READ) )
+					? allocIndexBuffer(_mem->size, dib.m_flags)
+					: allocDynamicIndexBuffer(_mem->size, dib.m_flags)
+					;
+
 				dib.m_handle.idx = uint16_t(ptr>>32);
 				dib.m_offset     = uint32_t(ptr);
 				dib.m_size       = _mem->size;
@@ -3371,27 +3670,31 @@ namespace bgfx
 			m_freeDynamicIndexBufferHandle[m_numFreeDynamicIndexBufferHandles++] = _handle;
 		}
 
-		void destroyDynamicIndexBufferInternal(DynamicIndexBufferHandle _handle)
+		void destroy(const DynamicIndexBuffer& _dib)
 		{
-			DynamicIndexBuffer& dib = m_dynamicIndexBuffers[_handle.idx];
-
-			if (0 != (dib.m_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
+			if (0 != (_dib.m_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
 			{
-				destroyIndexBuffer(dib.m_handle);
+				destroyIndexBuffer(_dib.m_handle);
 			}
 			else
 			{
-				m_dynIndexBufferAllocator.free(uint64_t(dib.m_handle.idx)<<32 | dib.m_offset);
+				m_dynIndexBufferAllocator.free(uint64_t(_dib.m_handle.idx) << 32 | _dib.m_offset);
 				if (m_dynIndexBufferAllocator.compact() )
 				{
 					for (uint64_t ptr = m_dynIndexBufferAllocator.remove(); 0 != ptr; ptr = m_dynIndexBufferAllocator.remove() )
 					{
-						IndexBufferHandle handle = { uint16_t(ptr>>32) };
+						IndexBufferHandle handle = { uint16_t(ptr >> 32) };
 						destroyIndexBuffer(handle);
 					}
 				}
 			}
+		}
 
+		void destroyDynamicIndexBufferInternal(DynamicIndexBufferHandle _handle)
+		{
+			DynamicIndexBuffer& dib = m_dynamicIndexBuffers[_handle.idx];
+			destroy(dib);
+			dib.reset();
 			m_dynamicIndexBufferHandle.free(_handle.idx);
 		}
 
@@ -3401,13 +3704,13 @@ namespace bgfx
 			if (ptr == NonLocalAllocator::kInvalidBlock)
 			{
 				VertexBufferHandle vertexBufferHandle = { m_vertexBufferHandle.alloc() };
-				BX_WARN(isValid(vertexBufferHandle), "Failed to allocate dynamic vertex buffer handle.");
 				if (!isValid(vertexBufferHandle) )
 				{
+					BX_TRACE("Failed to allocate dynamic vertex buffer handle.");
 					return NonLocalAllocator::kInvalidBlock;
 				}
 
-				const uint32_t allocSize = bx::max<uint32_t>(BGFX_CONFIG_DYNAMIC_VERTEX_BUFFER_SIZE, _size);
+				const uint32_t allocSize = bx::max<uint32_t>(BGFX_CONFIG_DYNAMIC_VERTEX_BUFFER_SIZE, bx::alignUp(_size, 1<<20) );
 
 				VertexBuffer& vb = m_vertexBuffers[vertexBufferHandle.idx];
 				vb.m_size   = allocSize;
@@ -3425,11 +3728,35 @@ namespace bgfx
 			return ptr;
 		}
 
+		uint64_t allocVertexBuffer(uint32_t _size, uint16_t _flags)
+		{
+			VertexBufferHandle vertexBufferHandle = { m_vertexBufferHandle.alloc() };
+
+			if (!isValid(vertexBufferHandle) )
+			{
+				BX_TRACE("WARNING: Failed to allocate vertex buffer handle (BGFX_CONFIG_MAX_VERTEX_BUFFERS, max: %d).", BGFX_CONFIG_MAX_VERTEX_BUFFERS);
+				return NonLocalAllocator::kInvalidBlock;
+			}
+
+			VertexBuffer& vb = m_vertexBuffers[vertexBufferHandle.idx];
+			vb.m_size   = _size;
+			vb.m_stride = 0;
+
+			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateDynamicVertexBuffer);
+			cmdbuf.write(vertexBufferHandle);
+			cmdbuf.write(_size);
+			cmdbuf.write(_flags);
+
+			setDebugNameForHandle(vertexBufferHandle, "Dynamic Vertex Buffer");
+
+			return uint64_t(vertexBufferHandle.idx)<<32;
+		}
+
 		BGFX_API_FUNC(DynamicVertexBufferHandle createDynamicVertexBuffer(uint32_t _num, const VertexLayout& _layout, uint16_t _flags) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			VertexLayoutHandle layoutHandle = findVertexLayout(_layout);
+			VertexLayoutHandle layoutHandle = findOrCreateVertexLayout(_layout);
 			if (!isValid(layoutHandle) )
 			{
 				BX_TRACE("WARNING: Failed to allocate vertex layout handle (BGFX_CONFIG_MAX_VERTEX_LAYOUTS, max: %d).", BGFX_CONFIG_MAX_VERTEX_LAYOUTS);
@@ -3445,38 +3772,15 @@ namespace bgfx
 
 			const uint32_t size = bx::strideAlign<16>(_num*_layout.m_stride, _layout.m_stride)+_layout.m_stride;
 
-			uint64_t ptr = 0;
-			if (0 != (_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
+			const uint64_t ptr = (0 != (_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
+				? allocVertexBuffer(size, _flags)
+				: allocDynamicVertexBuffer(size, _flags)
+				;
+
+			if (ptr == NonLocalAllocator::kInvalidBlock)
 			{
-				VertexBufferHandle vertexBufferHandle = { m_vertexBufferHandle.alloc() };
-				if (!isValid(vertexBufferHandle) )
-				{
-					m_dynamicVertexBufferHandle.free(handle.idx);
-					BX_TRACE("WARNING: Failed to allocate vertex buffer handle (BGFX_CONFIG_MAX_VERTEX_BUFFERS, max: %d).", BGFX_CONFIG_MAX_VERTEX_BUFFERS);
-					return BGFX_INVALID_HANDLE;
-				}
-
-				VertexBuffer& vb = m_vertexBuffers[vertexBufferHandle.idx];
-				vb.m_size   = size;
-				vb.m_stride = 0;
-
-				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateDynamicVertexBuffer);
-				cmdbuf.write(vertexBufferHandle);
-				cmdbuf.write(size);
-				cmdbuf.write(_flags);
-
-				setDebugName(convert(vertexBufferHandle), "Dynamic Vertex Buffer");
-
-				ptr = uint64_t(vertexBufferHandle.idx)<<32;
-			}
-			else
-			{
-				ptr = allocDynamicVertexBuffer(size, _flags);
-				if (ptr == NonLocalAllocator::kInvalidBlock)
-				{
-					m_dynamicVertexBufferHandle.free(handle.idx);
-					return BGFX_INVALID_HANDLE;
-				}
+				m_dynamicVertexBufferHandle.free(handle.idx);
+				return BGFX_INVALID_HANDLE;
 			}
 
 			DynamicVertexBuffer& dvb = m_dynamicVertexBuffers[handle.idx];
@@ -3496,6 +3800,8 @@ namespace bgfx
 		BGFX_API_FUNC(DynamicVertexBufferHandle createDynamicVertexBuffer(const Memory* _mem, const VertexLayout& _layout, uint16_t _flags) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
+
+			BX_ASSERT(0 == (_flags & BGFX_BUFFER_COMPUTE_WRITE), "Can't initialize compute write buffer from CPU.");
 
 			uint32_t numVertices = _mem->size/_layout.m_stride;
 			DynamicVertexBufferHandle handle = createDynamicVertexBuffer(numVertices, _layout, _flags);
@@ -3518,16 +3824,19 @@ namespace bgfx
 			BGFX_CHECK_HANDLE("updateDynamicVertexBuffer", m_dynamicVertexBufferHandle, _handle);
 
 			DynamicVertexBuffer& dvb = m_dynamicVertexBuffers[_handle.idx];
-			BX_ASSERT(0 == (dvb.m_flags &  BGFX_BUFFER_COMPUTE_WRITE), "Can't update GPU write buffer from CPU.");
+			BX_ASSERT(0 == (dvb.m_flags & BGFX_BUFFER_COMPUTE_WRITE), "Can't update GPU write buffer from CPU.");
 
 			if (dvb.m_size < _mem->size
 			&&  0 != (dvb.m_flags & BGFX_BUFFER_ALLOW_RESIZE) )
 			{
-				m_dynVertexBufferAllocator.free(uint64_t(dvb.m_handle.idx)<<32 | dvb.m_offset);
-				m_dynVertexBufferAllocator.compact();
+				destroy(dvb);
 
 				const uint32_t size = bx::strideAlign<16>(_mem->size, dvb.m_stride)+dvb.m_stride;
-				const uint64_t ptr  = allocDynamicVertexBuffer(size, dvb.m_flags);
+
+				const uint64_t ptr = (0 != (dvb.m_flags & BGFX_BUFFER_COMPUTE_READ) )
+					? allocVertexBuffer(size, dvb.m_flags)
+					: allocDynamicVertexBuffer(size, dvb.m_flags)
+					;
 
 				dvb.m_handle.idx  = uint16_t(ptr>>32);
 				dvb.m_offset      = uint32_t(ptr);
@@ -3562,6 +3871,26 @@ namespace bgfx
 			m_freeDynamicVertexBufferHandle[m_numFreeDynamicVertexBufferHandles++] = _handle;
 		}
 
+		void destroy(const DynamicVertexBuffer& _dvb)
+		{
+			if (0 != (_dvb.m_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
+			{
+				destroyVertexBuffer(_dvb.m_handle);
+			}
+			else
+			{
+				m_dynVertexBufferAllocator.free(uint64_t(_dvb.m_handle.idx) << 32 | _dvb.m_offset);
+				if (m_dynVertexBufferAllocator.compact() )
+				{
+					for (uint64_t ptr = m_dynVertexBufferAllocator.remove(); 0 != ptr; ptr = m_dynVertexBufferAllocator.remove() )
+					{
+						VertexBufferHandle handle = { uint16_t(ptr >> 32) };
+						destroyVertexBuffer(handle);
+					}
+				}
+			}
+		}
+
 		void destroyDynamicVertexBufferInternal(DynamicVertexBufferHandle _handle)
 		{
 			VertexLayoutHandle layoutHandle = m_vertexLayoutRef.release(_handle);
@@ -3575,32 +3904,18 @@ namespace bgfx
 			}
 
 			DynamicVertexBuffer& dvb = m_dynamicVertexBuffers[_handle.idx];
-
-			if (0 != (dvb.m_flags & BGFX_BUFFER_COMPUTE_READ_WRITE) )
-			{
-				destroyVertexBuffer(dvb.m_handle);
-			}
-			else
-			{
-				m_dynVertexBufferAllocator.free(uint64_t(dvb.m_handle.idx)<<32 | dvb.m_offset);
-				if (m_dynVertexBufferAllocator.compact() )
-				{
-					for (uint64_t ptr = m_dynVertexBufferAllocator.remove(); 0 != ptr; ptr = m_dynVertexBufferAllocator.remove() )
-					{
-						VertexBufferHandle handle = { uint16_t(ptr>>32) };
-						destroyVertexBuffer(handle);
-					}
-				}
-			}
-
+			destroy(dvb);
+			dvb.reset();
 			m_dynamicVertexBufferHandle.free(_handle.idx);
 		}
 
-		BGFX_API_FUNC(uint32_t getAvailTransientIndexBuffer(uint32_t _num) )
+		BGFX_API_FUNC(uint32_t getAvailTransientIndexBuffer(uint32_t _num, bool _index32) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			return m_submit->getAvailTransientIndexBuffer(_num);
+			const bool isIndex16     = !_index32;
+			const uint16_t indexSize = isIndex16 ? 2 : 4;
+			return m_submit->getAvailTransientIndexBuffer(_num, indexSize);
 		}
 
 		BGFX_API_FUNC(uint32_t getAvailTransientVertexBuffer(uint32_t _num, uint16_t _stride) )
@@ -3628,12 +3943,12 @@ namespace bgfx
 					+ bx::alignUp<uint32_t>(sizeof(TransientIndexBuffer), 16)
 					+ bx::alignUp(_size, 16)
 					;
-				tib = (TransientIndexBuffer*)BX_ALIGNED_ALLOC(g_allocator, size, 16);
+				tib = (TransientIndexBuffer*)bx::alignedAlloc(g_allocator, size, 16);
 				tib->data   = (uint8_t *)tib + bx::alignUp(sizeof(TransientIndexBuffer), 16);
 				tib->size   = _size;
 				tib->handle = handle;
 
-				setDebugName(convert(handle), "Transient Index Buffer");
+				setDebugNameForHandle(handle, "Transient Index Buffer");
 			}
 
 			return tib;
@@ -3645,21 +3960,24 @@ namespace bgfx
 			cmdbuf.write(_tib->handle);
 
 			m_submit->free(_tib->handle);
-			BX_ALIGNED_FREE(g_allocator, _tib, 16);
+			bx::alignedFree(g_allocator, _tib, 16);
 		}
 
-		BGFX_API_FUNC(void allocTransientIndexBuffer(TransientIndexBuffer* _tib, uint32_t _num) )
+		BGFX_API_FUNC(void allocTransientIndexBuffer(TransientIndexBuffer* _tib, uint32_t _num, bool _index32) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			uint32_t offset = m_submit->allocTransientIndexBuffer(_num);
+			const bool isIndex16     = !_index32;
+			const uint16_t indexSize = isIndex16 ? 2 : 4;
+			const uint32_t offset    = m_submit->allocTransientIndexBuffer(_num, indexSize);
 
 			TransientIndexBuffer& tib = *m_submit->m_transientIb;
 
 			_tib->data       = &tib.data[offset];
-			_tib->size       = _num * 2;
+			_tib->size       = _num * indexSize;
 			_tib->handle     = tib.handle;
-			_tib->startIndex = bx::strideAlign(offset, 2)/2;
+			_tib->startIndex = bx::strideAlign(offset, indexSize) / indexSize;
+			_tib->isIndex16  = isIndex16;
 		}
 
 		TransientVertexBuffer* createTransientVertexBuffer(uint32_t _size, const VertexLayout* _layout = NULL)
@@ -3676,7 +3994,7 @@ namespace bgfx
 
 				if (NULL != _layout)
 				{
-					layoutHandle = findVertexLayout(*_layout);
+					layoutHandle = findOrCreateVertexLayout(*_layout);
 					m_vertexLayoutRef.add(handle, layoutHandle, _layout->m_hash);
 
 					stride = _layout->m_stride;
@@ -3692,7 +4010,7 @@ namespace bgfx
 					+ bx::alignUp<uint32_t>(sizeof(TransientVertexBuffer), 16)
 					+ bx::alignUp(_size, 16)
 					;
-				tvb = (TransientVertexBuffer*)BX_ALIGNED_ALLOC(g_allocator, size, 16);
+				tvb = (TransientVertexBuffer*)bx::alignedAlloc(g_allocator, size, 16);
 				tvb->data = (uint8_t *)tvb + bx::alignUp(sizeof(TransientVertexBuffer), 16);
 				tvb->size = _size;
 				tvb->startVertex = 0;
@@ -3700,7 +4018,7 @@ namespace bgfx
 				tvb->handle = handle;
 				tvb->layoutHandle = layoutHandle;
 
-				setDebugName(convert(handle), "Transient Vertex Buffer");
+				setDebugNameForHandle(handle, "Transient Vertex Buffer");
 			}
 
 			return tvb;
@@ -3712,35 +4030,22 @@ namespace bgfx
 			cmdbuf.write(_tvb->handle);
 
 			m_submit->free(_tvb->handle);
-			BX_ALIGNED_FREE(g_allocator, _tvb, 16);
+			bx::alignedFree(g_allocator, _tvb, 16);
 		}
 
-		BGFX_API_FUNC(void allocTransientVertexBuffer(TransientVertexBuffer* _tvb, uint32_t _num, const VertexLayout& _layout) )
+		BGFX_API_FUNC(void allocTransientVertexBuffer(TransientVertexBuffer* _tvb, uint32_t _num, VertexLayoutHandle _layoutHandle, uint16_t _stride) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			VertexLayoutHandle layoutHandle = m_vertexLayoutRef.find(_layout.m_hash);
+			const uint32_t offset = m_submit->allocTransientVertexBuffer(_num, _stride);
+			const TransientVertexBuffer& dvb = *m_submit->m_transientVb;
 
-			TransientVertexBuffer& dvb = *m_submit->m_transientVb;
-
-			if (!isValid(layoutHandle) )
-			{
-				VertexLayoutHandle temp = { m_layoutHandle.alloc() };
-				layoutHandle = temp;
-				CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateVertexLayout);
-				cmdbuf.write(layoutHandle);
-				cmdbuf.write(_layout);
-				m_vertexLayoutRef.add(layoutHandle, _layout.m_hash);
-			}
-
-			uint32_t offset = m_submit->allocTransientVertexBuffer(_num, _layout.m_stride);
-
-			_tvb->data = &dvb.data[offset];
-			_tvb->size = _num * _layout.m_stride;
-			_tvb->startVertex = bx::strideAlign(offset, _layout.m_stride)/_layout.m_stride;
-			_tvb->stride = _layout.m_stride;
-			_tvb->handle = dvb.handle;
-			_tvb->layoutHandle   = layoutHandle;
+			_tvb->data         = &dvb.data[offset];
+			_tvb->size         = _num * _stride;
+			_tvb->startVertex  = bx::strideAlign(offset, _stride)/_stride;
+			_tvb->stride       = _stride;
+			_tvb->handle       = dvb.handle;
+			_tvb->layoutHandle = _layoutHandle;
 		}
 
 		BGFX_API_FUNC(void allocInstanceDataBuffer(InstanceDataBuffer* _idb, uint32_t _num, uint16_t _stride) )
@@ -3889,7 +4194,7 @@ namespace bgfx
 			sr.m_num      = 0;
 			sr.m_uniforms = NULL;
 
-			UniformHandle* uniforms = (UniformHandle*)alloca(count*sizeof(UniformHandle) );
+			UniformHandle* uniforms = (UniformHandle*)BX_STACK_ALLOC(count*sizeof(UniformHandle) );
 
 			for (uint32_t ii = 0; ii < count; ++ii)
 			{
@@ -3913,16 +4218,22 @@ namespace bgfx
 				uint16_t regCount;
 				bx::read(&reader, regCount, &err);
 
-				if (!isShaderVerLess(magic, 8))
+				if (!isShaderVerLess(magic, 8) )
 				{
 					uint16_t texInfo;
-					bx::read(&reader, texInfo);
+					bx::read(&reader, texInfo, &err);
+				}
+
+				if (!isShaderVerLess(magic, 10) )
+				{
+					uint16_t texFormat = 0;
+					bx::read(&reader, texFormat, &err);
 				}
 
 				PredefinedUniform::Enum predefined = nameToPredefinedUniformEnum(name);
-				if (PredefinedUniform::Count == predefined && UniformType::End != UniformType::Enum(type))
+				if (PredefinedUniform::Count == predefined && UniformType::End != UniformType::Enum(type) )
 				{
-					uniforms[sr.m_num] = createUniform(name, UniformType::Enum(type), regCount);
+					uniforms[sr.m_num] = createUniform(name, UniformType::Enum(type), num);
 					sr.m_num++;
 				}
 			}
@@ -3930,7 +4241,7 @@ namespace bgfx
 			if (0 != sr.m_num)
 			{
 				uint32_t size = sr.m_num*sizeof(UniformHandle);
-				sr.m_uniforms = (UniformHandle*)BX_ALLOC(g_allocator, size);
+				sr.m_uniforms = (UniformHandle*)bx::alloc(g_allocator, size);
 				bx::memCopy(sr.m_uniforms, uniforms, size);
 			}
 
@@ -3938,7 +4249,7 @@ namespace bgfx
 			cmdbuf.write(handle);
 			cmdbuf.write(_mem);
 
-			setDebugName(convert(handle) );
+			setDebugNameForHandle(handle);
 
 			return handle;
 		}
@@ -3962,10 +4273,15 @@ namespace bgfx
 			return sr.m_num;
 		}
 
-		void setName(Handle _handle, const bx::StringView& _name)
+		void setNameForHandle(Handle _handle, const bx::StringView& _name)
 		{
 			char tmp[1024];
-			uint16_t len = 1+(uint16_t)bx::snprintf(tmp, BX_COUNTOF(tmp), "%sH %d: %.*s", getTypeName(_handle), _handle.idx, _name.getLength(), _name.getPtr() );
+			uint16_t len = 1+(uint16_t)bx::snprintf(tmp, BX_COUNTOF(tmp)
+				, "%sH %d: %S"
+				, _handle.getTypeName().abrvName
+				, _handle.idx
+				, &_name
+				);
 
 			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::SetName);
 			cmdbuf.write(_handle);
@@ -3973,11 +4289,11 @@ namespace bgfx
 			cmdbuf.write(tmp, len);
 		}
 
-		void setDebugName(Handle _handle, const bx::StringView& _name = "")
+		void setDebugNameForHandle(Handle _handle, const bx::StringView& _name = "")
 		{
 			if (BX_ENABLED(BGFX_CONFIG_DEBUG) )
 			{
-				setName(_handle, _name);
+				setNameForHandle(_handle, _name);
 			}
 		}
 
@@ -3990,7 +4306,7 @@ namespace bgfx
 			ShaderRef& sr = m_shaderRef[_handle.idx];
 			sr.m_name.set(_name);
 
-			setName(convert(_handle), _name);
+			setNameForHandle(_handle, _name);
 		}
 
 		BGFX_API_FUNC(void destroyShader(ShaderHandle _handle) )
@@ -4038,7 +4354,7 @@ namespace bgfx
 						destroyUniform(sr.m_uniforms[ii]);
 					}
 
-					BX_FREE(g_allocator, sr.m_uniforms);
+					bx::free(g_allocator, sr.m_uniforms);
 					sr.m_uniforms = NULL;
 					sr.m_num = 0;
 				}
@@ -4237,16 +4553,20 @@ namespace bgfx
 			TextureRef& ref = m_textureRef[handle.idx];
 			ref.init(
 				  _ratio
+				, uint16_t(imageContainer.m_width)
+				, uint16_t(imageContainer.m_height)
+				, uint16_t(imageContainer.m_depth)
 				, _info->format
 				, _info->storageSize
 				, imageContainer.m_numMips
 				, imageContainer.m_numLayers
 				, 0 != (g_caps.supported & BGFX_CAPS_TEXTURE_DIRECT_ACCESS)
 				, _immutable
-				, 0 != (_flags & BGFX_TEXTURE_RT_MASK)
+				, imageContainer.m_cubeMap
+				, _flags
 				);
 
-			if (ref.m_rt)
+			if (ref.isRt() )
 			{
 				m_rtMemoryUsed += int64_t(ref.m_storageSize);
 			}
@@ -4261,7 +4581,7 @@ namespace bgfx
 			cmdbuf.write(_flags);
 			cmdbuf.write(_skip);
 
-			setDebugName(convert(handle) );
+			setDebugNameForHandle(handle);
 
 			return handle;
 		}
@@ -4274,7 +4594,7 @@ namespace bgfx
 			TextureRef& ref = m_textureRef[_handle.idx];
 			ref.m_name.set(_name);
 
-			setName(convert(_handle), _name);
+			setNameForHandle(_handle, _name);
 		}
 
 		void setDirectAccessPtr(TextureHandle _handle, void* _ptr)
@@ -4314,28 +4634,30 @@ namespace bgfx
 			BGFX_CHECK_HANDLE("readTexture", m_textureHandle, _handle);
 
 			const TextureRef& ref = m_textureRef[_handle.idx];
-			BX_ASSERT(_mip < ref.m_numMips, "Invalid mip: %d num mips:", _mip, ref.m_numMips); BX_UNUSED(ref);
+			BX_ASSERT(ref.isReadBack(), "Can't read from texture which was not created with BGFX_TEXTURE_READ_BACK.");
+			BX_ASSERT(_mip < ref.m_numMips, "Invalid mip: %d num mips:", _mip, ref.m_numMips);
+			BX_UNUSED(ref);
 
 			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::ReadTexture);
 			cmdbuf.write(_handle);
 			cmdbuf.write(_data);
 			cmdbuf.write(_mip);
-			return m_frames + 2;
+			return m_submit->m_frameNum + 2;
 		}
 
 		void resizeTexture(TextureHandle _handle, uint16_t _width, uint16_t _height, uint8_t _numMips, uint16_t _numLayers)
 		{
-			const TextureRef& textureRef = m_textureRef[_handle.idx];
-			BX_ASSERT(BackbufferRatio::Count != textureRef.m_bbRatio, "");
+			const TextureRef& ref = m_textureRef[_handle.idx];
+			BX_ASSERT(BackbufferRatio::Count != ref.m_bbRatio, "");
 
-			getTextureSizeFromRatio(BackbufferRatio::Enum(textureRef.m_bbRatio), _width, _height);
+			getTextureSizeFromRatio(BackbufferRatio::Enum(ref.m_bbRatio), _width, _height);
 			_numMips = calcNumMips(1 < _numMips, _width, _height);
 
 			BX_TRACE("Resize %3d: %4dx%d %s"
 				, _handle.idx
 				, _width
 				, _height
-				, bimg::getName(bimg::TextureFormat::Enum(textureRef.m_format) )
+				, bimg::getName(bimg::TextureFormat::Enum(ref.m_format) )
 				);
 
 			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::ResizeTexture);
@@ -4370,7 +4692,7 @@ namespace bgfx
 			{
 				ref.m_name.clear();
 
-				if (ref.m_rt)
+				if (ref.isRt() )
 				{
 					m_rtMemoryUsed -= int64_t(ref.m_storageSize);
 				}
@@ -4403,8 +4725,8 @@ namespace bgfx
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			const TextureRef& textureRef = m_textureRef[_handle.idx];
-			if (textureRef.m_immutable)
+			const TextureRef& ref = m_textureRef[_handle.idx];
+			if (ref.m_immutable)
 			{
 				BX_WARN(false, "Can't update immutable texture.");
 				release(_mem);
@@ -4427,38 +4749,17 @@ namespace bgfx
 			cmdbuf.write(_mem);
 		}
 
-		bool checkFrameBuffer(uint8_t _num, const Attachment* _attachment) const
-		{
-			uint8_t color = 0;
-			uint8_t depth = 0;
-
-			for (uint32_t ii = 0; ii < _num; ++ii)
-			{
-				TextureHandle texHandle = _attachment[ii].handle;
-				if (bimg::isDepth(bimg::TextureFormat::Enum(m_textureRef[texHandle.idx].m_format)))
-				{
-					++depth;
-				}
-				else
-				{
-					++color;
-				}
-			}
-
-			return color <= g_caps.limits.maxFBAttachments
-				&& depth <= 1
-				;
-		}
-
 		BGFX_API_FUNC(FrameBufferHandle createFrameBuffer(uint8_t _num, const Attachment* _attachment, bool _destroyTextures) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			BX_ASSERT(checkFrameBuffer(_num, _attachment)
-				, "Too many frame buffer attachments (num attachments: %d, max color attachments %d)!"
-				, _num
-				, g_caps.limits.maxFBAttachments
-				);
+			bx::ErrorAssert err;
+			isFrameBufferValid(_num, _attachment, &err);
+
+			if (!err.isOk() )
+			{
+				return BGFX_INVALID_HANDLE;
+			}
 
 			FrameBufferHandle handle = { m_frameBufferHandle.alloc() };
 			BX_WARN(isValid(handle), "Failed to allocate frame buffer handle.");
@@ -4470,18 +4771,23 @@ namespace bgfx
 				cmdbuf.write(false);
 				cmdbuf.write(_num);
 
-				FrameBufferRef& ref = m_frameBufferRef[handle.idx];
-				ref.m_window = false;
-				bx::memSet(ref.un.m_th, 0xff, sizeof(ref.un.m_th) );
-				BackbufferRatio::Enum bbRatio = BackbufferRatio::Enum(m_textureRef[_attachment[0].handle.idx].m_bbRatio);
+				const TextureRef& firstTexture = m_textureRef[_attachment[0].handle.idx];
+				const BackbufferRatio::Enum bbRatio = BackbufferRatio::Enum(firstTexture.m_bbRatio);
+
+				FrameBufferRef& fbr = m_frameBufferRef[handle.idx];
+				if (BackbufferRatio::Count == bbRatio)
+				{
+					fbr.m_width  = bx::max<uint16_t>(firstTexture.m_width  >> _attachment[0].mip, 1);
+					fbr.m_height = bx::max<uint16_t>(firstTexture.m_height >> _attachment[0].mip, 1);
+				}
+
+				fbr.m_window = false;
+				bx::memSet(fbr.un.m_th, 0xff, sizeof(fbr.un.m_th) );
+
 				for (uint32_t ii = 0; ii < _num; ++ii)
 				{
 					TextureHandle texHandle = _attachment[ii].handle;
-					BGFX_CHECK_HANDLE("createFrameBuffer texture", m_textureHandle, texHandle);
-					BX_ASSERT(bbRatio == m_textureRef[texHandle.idx].m_bbRatio, "Mismatch in texture back-buffer ratio.");
-					BX_UNUSED(bbRatio);
-
-					ref.un.m_th[ii] = texHandle;
+					fbr.un.m_th[ii] = texHandle;
 					textureIncRef(texHandle);
 				}
 
@@ -4517,9 +4823,11 @@ namespace bgfx
 				cmdbuf.write(_format);
 				cmdbuf.write(_depthFormat);
 
-				FrameBufferRef& ref = m_frameBufferRef[handle.idx];
-				ref.m_window = true;
-				ref.un.m_nwh = _nwh;
+				FrameBufferRef& fbr = m_frameBufferRef[handle.idx];
+				fbr.m_width  = _width;
+				fbr.m_height = _height;
+				fbr.m_window = true;
+				fbr.un.m_nwh = _nwh;
 			}
 
 			return handle;
@@ -4531,10 +4839,10 @@ namespace bgfx
 
 			BGFX_CHECK_HANDLE("setName", m_frameBufferHandle, _handle);
 
-			FrameBufferRef& ref = m_frameBufferRef[_handle.idx];
-			ref.m_name.set(_name);
+			FrameBufferRef& fbr = m_frameBufferRef[_handle.idx];
+			fbr.m_name.set(_name);
 
-//			setName(convert(_handle), _name);
+//			setNameForHandle(_handle, _name);
 		}
 
 		BGFX_API_FUNC(TextureHandle getTexture(FrameBufferHandle _handle, uint8_t _attachment) )
@@ -4543,11 +4851,11 @@ namespace bgfx
 
 			BGFX_CHECK_HANDLE("getTexture", m_frameBufferHandle, _handle);
 
-			const FrameBufferRef& ref = m_frameBufferRef[_handle.idx];
-			if (!ref.m_window)
+			const FrameBufferRef& fbr = m_frameBufferRef[_handle.idx];
+			if (!fbr.m_window)
 			{
 				const uint32_t attachment = bx::min<uint32_t>(_attachment, BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS);
-				return ref.un.m_th[attachment];
+				return fbr.un.m_th[attachment];
 			}
 
 			return BGFX_INVALID_HANDLE;
@@ -4564,14 +4872,14 @@ namespace bgfx
 			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::DestroyFrameBuffer);
 			cmdbuf.write(_handle);
 
-			FrameBufferRef& ref = m_frameBufferRef[_handle.idx];
-			ref.m_name.clear();
+			FrameBufferRef& fbr = m_frameBufferRef[_handle.idx];
+			fbr.m_name.clear();
 
-			if (!ref.m_window)
+			if (!fbr.m_window)
 			{
-				for (uint32_t ii = 0; ii < BX_COUNTOF(ref.un.m_th); ++ii)
+				for (uint32_t ii = 0; ii < BX_COUNTOF(fbr.un.m_th); ++ii)
 				{
-					TextureHandle th = ref.un.m_th[ii];
+					TextureHandle th = fbr.un.m_th[ii];
 					if (isValid(th) )
 					{
 						textureDecRef(th);
@@ -4584,13 +4892,17 @@ namespace bgfx
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
-			if (PredefinedUniform::Count != nameToPredefinedUniformEnum(_name) )
 			{
-				BX_TRACE("%s is predefined uniform name.", _name);
-				return BGFX_INVALID_HANDLE;
+				bx::ErrorAssert err;
+				isIdentifierValid(_name, &err);
+
+				if (!err.isOk() )
+				{
+					return BGFX_INVALID_HANDLE;
+				}
 			}
 
-			_num  = bx::max<uint16_t>(1, _num);
+			_num = bx::max<uint16_t>(1, _num);
 
 			uint16_t idx = m_uniformHashMap.find(bx::hash<bx::HashMurmur2A>(_name) );
 			if (kInvalidHandle != idx)
@@ -4612,11 +4924,13 @@ namespace bgfx
 					uniform.m_type = oldsize < newsize ? _type : uniform.m_type;
 					uniform.m_num  = bx::max<uint16_t>(uniform.m_num, _num);
 
+					BX_TRACE("  Resize uniform (handle %3d) `%s`, num %d", handle.idx, _name, _num);
+
 					CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::CreateUniform);
 					cmdbuf.write(handle);
 					cmdbuf.write(uniform.m_type);
 					cmdbuf.write(uniform.m_num);
-					uint8_t len = (uint8_t)bx::strLen(_name)+1;
+					uint8_t len = bx::narrowCast<uint8_t>(bx::strLen(_name)+1);
 					cmdbuf.write(len);
 					cmdbuf.write(_name, len);
 				}
@@ -4633,7 +4947,7 @@ namespace bgfx
 				return BGFX_INVALID_HANDLE;
 			}
 
-			BX_TRACE("Creating uniform (handle %3d) %s", handle.idx, _name);
+			BX_TRACE("Creating uniform (handle %3d) `%s`, num %d", handle.idx, _name, _num);
 
 			UniformRef& uniform = m_uniformRef[handle.idx];
 			uniform.m_name.set(_name);
@@ -4648,7 +4962,7 @@ namespace bgfx
 			cmdbuf.write(handle);
 			cmdbuf.write(_type);
 			cmdbuf.write(_num);
-			uint8_t len = (uint8_t)bx::strLen(_name)+1;
+			uint8_t len = bx::narrowCast<uint8_t>(bx::strLen(_name)+1);
 			cmdbuf.write(len);
 			cmdbuf.write(_name, len);
 
@@ -4744,19 +5058,33 @@ namespace bgfx
 
 			if (isValid(_handle) )
 			{
-				FrameBufferRef& ref = m_frameBufferRef[_handle.idx];
-				if (!ref.m_window)
+				const FrameBufferRef& fbr = m_frameBufferRef[_handle.idx];
+				if (!fbr.m_window)
 				{
 					BX_TRACE("requestScreenShot can be done only for window frame buffer handles (handle: %d).", _handle.idx);
 					return;
 				}
 			}
 
-			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::RequestScreenShot);
-			uint16_t len = (uint16_t)bx::strLen(_filePath)+1;
-			cmdbuf.write(_handle);
-			cmdbuf.write(len);
-			cmdbuf.write(_filePath, len);
+			if (m_submit->m_numScreenShots >= BGFX_CONFIG_MAX_SCREENSHOTS)
+			{
+				BX_TRACE("Only %d screenshots can be requested.", BGFX_CONFIG_MAX_SCREENSHOTS);
+				return;
+			}
+
+			for (uint8_t ii = 0, num = m_submit->m_numScreenShots; ii < num; ++ii)
+			{
+				const ScreenShot& screenShot = m_submit->m_screenShot[ii];
+				if (screenShot.handle.idx == _handle.idx)
+				{
+					BX_TRACE("Already requested screenshot on handle %d.", _handle.idx);
+					return;
+				}
+			}
+
+			ScreenShot& screenShot = m_submit->m_screenShot[m_submit->m_numScreenShots++];
+			screenShot.handle = _handle;
+			screenShot.filePath.set(_filePath);
 		}
 
 		BGFX_API_FUNC(void setPaletteColor(uint8_t _index, const float _rgba[4]) )
@@ -4771,15 +5099,13 @@ namespace bgfx
 			m_colorPaletteDirty = 2;
 		}
 
-		BGFX_API_FUNC(void setViewName(ViewId _id, const char* _name) )
+		BGFX_API_FUNC(void setViewName(ViewId _id, const bx::StringView& _name) )
 		{
 			BGFX_MUTEX_SCOPE(m_resourceApiLock);
 
 			CommandBuffer& cmdbuf = getCommandBuffer(CommandBuffer::UpdateViewName);
 			cmdbuf.write(_id);
-			uint16_t len = (uint16_t)bx::strLen(_name)+1;
-			cmdbuf.write(len);
-			cmdbuf.write(_name, len);
+			cmdbuf.write(_name);
 		}
 
 		BGFX_API_FUNC(void setViewRect(ViewId _id, uint16_t _x, uint16_t _y, uint16_t _width, uint16_t _height) )
@@ -4794,7 +5120,7 @@ namespace bgfx
 
 		BGFX_API_FUNC(void setViewClear(ViewId _id, uint16_t _flags, uint32_t _rgba, float _depth, uint8_t _stencil) )
 		{
-			BX_ASSERT(bx::equal(_depth, bx::clamp(_depth, 0.0f, 1.0f), 0.0001f)
+			BX_ASSERT(bx::isEqual(_depth, bx::clamp(_depth, 0.0f, 1.0f), 0.0001f)
 				, "Clear depth value must be between 0.0 and 1.0 (_depth %f)."
 				, _depth
 				);
@@ -4804,7 +5130,7 @@ namespace bgfx
 
 		BGFX_API_FUNC(void setViewClear(ViewId _id, uint16_t _flags, float _depth, uint8_t _stencil, uint8_t _0, uint8_t _1, uint8_t _2, uint8_t _3, uint8_t _4, uint8_t _5, uint8_t _6, uint8_t _7) )
 		{
-			BX_ASSERT(bx::equal(_depth, bx::clamp(_depth, 0.0f, 1.0f), 0.0001f)
+			BX_ASSERT(bx::isEqual(_depth, bx::clamp(_depth, 0.0f, 1.0f), 0.0001f)
 				, "Clear depth value must be between 0.0 and 1.0 (_depth %f)."
 				, _depth
 				);
@@ -5033,9 +5359,9 @@ namespace bgfx
 		ProgramHashMap m_programHashMap;
 		ProgramRef     m_programRef[BGFX_CONFIG_MAX_PROGRAMS];
 
-		TextureRef     m_textureRef[BGFX_CONFIG_MAX_TEXTURES];
-		FrameBufferRef m_frameBufferRef[BGFX_CONFIG_MAX_FRAME_BUFFERS];
-		VertexLayoutRef  m_vertexLayoutRef;
+		TextureRef      m_textureRef[BGFX_CONFIG_MAX_TEXTURES];
+		FrameBufferRef  m_frameBufferRef[BGFX_CONFIG_MAX_FRAME_BUFFERS];
+		VertexLayoutRef m_vertexLayoutRef;
 
 		ViewId m_viewRemap[BGFX_CONFIG_MAX_VIEWS];
 		uint32_t m_seq[BGFX_CONFIG_MAX_VIEWS];
@@ -5057,9 +5383,8 @@ namespace bgfx
 		ClearQuad m_clearQuad;
 
 		RendererContextI* m_renderCtx;
-		RendererContextI* m_renderMain;
-		RendererContextI* m_renderNoop;
 
+		bool m_headless;
 		bool m_rendererInitialized;
 		bool m_exit;
 		bool m_flipAfterRender;

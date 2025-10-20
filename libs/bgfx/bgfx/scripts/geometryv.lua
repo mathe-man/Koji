@@ -1,3 +1,8 @@
+--
+-- Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+-- License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
+--
+
 project ("geometryv")
 	uuid (os.uuid("geometryv") )
 	kind "ConsoleApp"
@@ -5,7 +10,6 @@ project ("geometryv")
 	configuration {}
 
 	includedirs {
-		path.join(BX_DIR,   "include"),
 		path.join(BIMG_DIR, "include"),
 		path.join(BGFX_DIR, "include"),
 		path.join(BGFX_DIR, "3rdparty"),
@@ -23,8 +27,9 @@ project ("geometryv")
 		"bimg_decode",
 		"bimg",
 		"bgfx",
-		"bx",
 	}
+
+	using_bx()
 
 	if _OPTIONS["with-sdl"] then
 		defines { "ENTRY_CONFIG_USE_SDL=1" }
@@ -43,19 +48,9 @@ project ("geometryv")
 		defines { "ENTRY_CONFIG_USE_GLFW=1" }
 		links   { "glfw3" }
 
-		configuration { "linux or freebsd" }
-			links {
-				"Xrandr",
-				"Xinerama",
-				"Xi",
-				"Xxf86vm",
-				"Xcursor",
-			}
-
-		configuration { "osx" }
+		configuration { "osx*" }
 			linkoptions {
 				"-framework CoreVideo",
-				"-framework IOKit",
 			}
 
 		configuration {}
@@ -138,12 +133,13 @@ project ("geometryv")
 			"pthread",
 		}
 
-	configuration { "osx" }
+	configuration { "osx*" }
 		linkoptions {
 			"-framework Cocoa",
+			"-framework IOKit",
 			"-framework Metal",
-			"-framework QuartzCore",
 			"-framework OpenGL",
+			"-framework QuartzCore",
 		}
 
 	configuration { "ios*" }
@@ -151,9 +147,10 @@ project ("geometryv")
 		linkoptions {
 			"-framework CoreFoundation",
 			"-framework Foundation",
+			"-framework IOKit",
 			"-framework OpenGLES",
-			"-framework UIKit",
 			"-framework QuartzCore",
+			"-framework UIKit",
 		}
 
 	configuration { "xcode4", "ios" }

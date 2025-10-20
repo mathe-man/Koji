@@ -111,7 +111,32 @@ void spvValidatorOptionsSetScalarBlockLayout(spv_validator_options options,
   options->scalar_block_layout = val;
 }
 
+void spvValidatorOptionsSetWorkgroupScalarBlockLayout(spv_validator_options options,
+                                                      bool val) {
+  options->workgroup_scalar_block_layout = val;
+}
+
 void spvValidatorOptionsSetSkipBlockLayout(spv_validator_options options,
                                            bool val) {
   options->skip_block_layout = val;
+}
+
+void spvValidatorOptionsSetAllowLocalSizeId(spv_validator_options options,
+                                            bool val) {
+  options->allow_localsizeid = val;
+}
+
+void spvValidatorOptionsSetAllowOffsetTextureOperand(
+    spv_validator_options options, bool val) {
+  options->allow_offset_texture_operand = val;
+}
+
+void spvValidatorOptionsSetAllowVulkan32BitBitwise(
+    spv_validator_options options, bool val) {
+  options->allow_vulkan_32_bit_bitwise = val;
+}
+
+void spvValidatorOptionsSetFriendlyNames(spv_validator_options options,
+                                         bool val) {
+  options->use_friendly_names = val;
 }

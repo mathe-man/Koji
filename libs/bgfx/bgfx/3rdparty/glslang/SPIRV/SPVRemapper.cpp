@@ -35,14 +35,10 @@
 
 #include "SPVRemapper.h"
 #include "doc.h"
-
-#if !defined (use_cpp11)
-// ... not supported before C++11
-#else // defined (use_cpp11)
+#include "spvUtil.h"
 
 #include <algorithm>
 #include <cassert>
-#include "../glslang/Include/Common.h"
 
 namespace spv {
 
@@ -66,13 +62,13 @@ namespace spv {
         std::uint32_t offset = 0;
 
         switch (opCode) {
-        case spv::OpExtInst:
+        case spv::Op::OpExtInst:
             offset += asId(word + 4); break;
         default:
             break;
         }
 
-        return opCode * 19 + offset; // 19 = small prime
+        return ((unsigned)opCode) * 19 + offset; // 19 = small prime
     }
 
     spirvbin_t::range_t spirvbin_t::literalRange(spv::Op opCode) const
@@ -80,16 +76,16 @@ namespace spv {
         static const int maxCount = 1<<30;
 
         switch (opCode) {
-        case spv::OpTypeFloat:        // fall through...
-        case spv::OpTypePointer:      return range_t(2, 3);
-        case spv::OpTypeInt:          return range_t(2, 4);
+        case spv::Op::OpTypeFloat:    // fall through...
+        case spv::Op::OpTypePointer:  return range_t(2, 3);
+        case spv::Op::OpTypeInt:      return range_t(2, 4);
         // TODO: case spv::OpTypeImage:
         // TODO: case spv::OpTypeSampledImage:
-        case spv::OpTypeSampler:      return range_t(3, 8);
-        case spv::OpTypeVector:       // fall through
-        case spv::OpTypeMatrix:       // ...
-        case spv::OpTypePipe:         return range_t(3, 4);
-        case spv::OpConstant:         return range_t(3, maxCount);
+        case spv::Op::OpTypeSampler:  return range_t(3, 8);
+        case spv::Op::OpTypeVector:   // fall through
+        case spv::Op::OpTypeMatrix:   // ...
+        case spv::Op::OpTypePipe:     return range_t(3, 4);
+        case spv::Op::OpConstant:     return range_t(3, maxCount);
         default:                      return range_t(0, 0);
         }
     }
@@ -102,15 +98,15 @@ namespace spv {
             return range_t(1, 2);
 
         switch (opCode) {
-        case spv::OpTypeVector:       // fall through
-        case spv::OpTypeMatrix:       // ...
-        case spv::OpTypeSampler:      // ...
-        case spv::OpTypeArray:        // ...
-        case spv::OpTypeRuntimeArray: // ...
-        case spv::OpTypePipe:         return range_t(2, 3);
-        case spv::OpTypeStruct:       // fall through
-        case spv::OpTypeFunction:     return range_t(2, maxCount);
-        case spv::OpTypePointer:      return range_t(3, 4);
+        case spv::Op::OpTypeVector:       // fall through
+        case spv::Op::OpTypeMatrix:       // ...
+        case spv::Op::OpTypeSampler:      // ...
+        case spv::Op::OpTypeArray:        // ...
+        case spv::Op::OpTypeRuntimeArray: // ...
+        case spv::Op::OpTypePipe:         return range_t(2, 3);
+        case spv::Op::OpTypeStruct:       // fall through
+        case spv::Op::OpTypeFunction:     return range_t(2, maxCount);
+        case spv::Op::OpTypePointer:      return range_t(3, 4);
         default:                      return range_t(0, 0);
         }
     }
@@ -120,9 +116,9 @@ namespace spv {
         static const int maxCount = 1<<30;
 
         switch (opCode) {
-        case spv::OpTypeArray:         // fall through...
-        case spv::OpTypeRuntimeArray:  return range_t(3, 4);
-        case spv::OpConstantComposite: return range_t(3, maxCount);
+        case spv::Op::OpTypeArray:         // fall through...
+        case spv::Op::OpTypeRuntimeArray:  return range_t(3, 4);
+        case spv::Op::OpConstantComposite: return range_t(3, maxCount);
         default:                       return range_t(0, 0);
         }
     }
@@ -139,8 +135,8 @@ namespace spv {
             return 0;
 
         switch (opCode) {
-        case spv::OpTypeInt:   // fall through...
-        case spv::OpTypeFloat: return (spv[typeStart+2]+31)/32;
+        case spv::Op::OpTypeInt:   // fall through...
+        case spv::Op::OpTypeFloat: return (spv[typeStart + 2] + 31) / 32;
         default:
             return 0;
         }
@@ -160,15 +156,29 @@ namespace spv {
     }
 
     // Is this an opcode we should remove when using --strip?
-    bool spirvbin_t::isStripOp(spv::Op opCode) const
+    bool spirvbin_t::isStripOp(spv::Op opCode, unsigned start) const
     {
         switch (opCode) {
-        case spv::OpSource:
-        case spv::OpSourceExtension:
-        case spv::OpName:
-        case spv::OpMemberName:
-        case spv::OpLine:           return true;
-        default:                    return false;
+        case spv::Op::OpSource:
+        case spv::Op::OpSourceExtension:
+        case spv::Op::OpName:
+        case spv::Op::OpMemberName:
+        case spv::Op::OpLine:
+        {
+            const std::string name = literalString(start + 2);
+
+            std::vector<std::string>::const_iterator it;
+            for (it = stripWhiteList.begin(); it < stripWhiteList.end(); it++)
+            {
+                if (name.find(*it) != std::string::npos) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        default :
+            return false;
         }
     }
 
@@ -176,15 +186,15 @@ namespace spv {
     bool spirvbin_t::isFlowCtrl(spv::Op opCode) const
     {
         switch (opCode) {
-        case spv::OpBranchConditional:
-        case spv::OpBranch:
-        case spv::OpSwitch:
-        case spv::OpLoopMerge:
-        case spv::OpSelectionMerge:
-        case spv::OpLabel:
-        case spv::OpFunction:
-        case spv::OpFunctionEnd:    return true;
-        default:                    return false;
+        case spv::Op::OpBranchConditional:
+        case spv::Op::OpBranch:
+        case spv::Op::OpSwitch:
+        case spv::Op::OpLoopMerge:
+        case spv::Op::OpSelectionMerge:
+        case spv::Op::OpLabel:
+        case spv::Op::OpFunction:
+        case spv::Op::OpFunctionEnd: return true;
+        default:                     return false;
         }
     }
 
@@ -192,27 +202,27 @@ namespace spv {
     bool spirvbin_t::isTypeOp(spv::Op opCode) const
     {
         switch (opCode) {
-        case spv::OpTypeVoid:
-        case spv::OpTypeBool:
-        case spv::OpTypeInt:
-        case spv::OpTypeFloat:
-        case spv::OpTypeVector:
-        case spv::OpTypeMatrix:
-        case spv::OpTypeImage:
-        case spv::OpTypeSampler:
-        case spv::OpTypeArray:
-        case spv::OpTypeRuntimeArray:
-        case spv::OpTypeStruct:
-        case spv::OpTypeOpaque:
-        case spv::OpTypePointer:
-        case spv::OpTypeFunction:
-        case spv::OpTypeEvent:
-        case spv::OpTypeDeviceEvent:
-        case spv::OpTypeReserveId:
-        case spv::OpTypeQueue:
-        case spv::OpTypeSampledImage:
-        case spv::OpTypePipe:         return true;
-        default:                      return false;
+        case spv::Op::OpTypeVoid:
+        case spv::Op::OpTypeBool:
+        case spv::Op::OpTypeInt:
+        case spv::Op::OpTypeFloat:
+        case spv::Op::OpTypeVector:
+        case spv::Op::OpTypeMatrix:
+        case spv::Op::OpTypeImage:
+        case spv::Op::OpTypeSampler:
+        case spv::Op::OpTypeArray:
+        case spv::Op::OpTypeRuntimeArray:
+        case spv::Op::OpTypeStruct:
+        case spv::Op::OpTypeOpaque:
+        case spv::Op::OpTypePointer:
+        case spv::Op::OpTypeFunction:
+        case spv::Op::OpTypeEvent:
+        case spv::Op::OpTypeDeviceEvent:
+        case spv::Op::OpTypeReserveId:
+        case spv::Op::OpTypeQueue:
+        case spv::Op::OpTypeSampledImage:
+        case spv::Op::OpTypePipe:         return true;
+        default:                          return false;
         }
     }
 
@@ -220,15 +230,15 @@ namespace spv {
     bool spirvbin_t::isConstOp(spv::Op opCode) const
     {
         switch (opCode) {
-        case spv::OpConstantSampler:
+        case spv::Op::OpConstantSampler:
             error("unimplemented constant type");
             return true;
 
-        case spv::OpConstantNull:
-        case spv::OpConstantTrue:
-        case spv::OpConstantFalse:
-        case spv::OpConstantComposite:
-        case spv::OpConstant:
+        case spv::Op::OpConstantNull:
+        case spv::Op::OpConstantTrue:
+        case spv::Op::OpConstantFalse:
+        case spv::Op::OpConstantComposite:
+        case spv::Op::OpConstant:
             return true;
 
         default:
@@ -297,15 +307,21 @@ namespace spv {
     std::string spirvbin_t::literalString(unsigned word) const
     {
         std::string literal;
+        const spirword_t * pos = spv.data() + word;
 
         literal.reserve(16);
 
-        const char* bytes = reinterpret_cast<const char*>(spv.data() + word);
-
-        while (bytes && *bytes)
-            literal += *bytes++;
-
-        return literal;
+        do {
+            spirword_t word = *pos;
+            for (int i = 0; i < 4; i++) {
+                char c = word & 0xff;
+                if (c == '\0')
+                    return literal;
+                literal += c;
+                word >>= 8;
+            }
+            pos++;
+        } while (true);
     }
 
     void spirvbin_t::applyMap()
@@ -366,7 +382,7 @@ namespace spv {
         process(
             [&](spv::Op opCode, unsigned start) {
                 // remember opcodes we want to strip later
-                if (isStripOp(opCode))
+                if (isStripOp(opCode, start))
                     stripInst(start);
                 return true;
             },
@@ -380,10 +396,10 @@ namespace spv {
             [&](spv::Op opCode, unsigned start) {
                 // strip opcodes pointing to removed data
                 switch (opCode) {
-                case spv::OpName:
-                case spv::OpMemberName:
-                case spv::OpDecorate:
-                case spv::OpMemberDecorate:
+                case spv::Op::OpName:
+                case spv::Op::OpMemberName:
+                case spv::Op::OpDecorate:
+                case spv::Op::OpMemberDecorate:
                     if (idPosR.find(asId(start+1)) == idPosR.end())
                         stripInst(start);
                     break;
@@ -424,11 +440,11 @@ namespace spv {
                 unsigned word = start+1;
                 spv::Id  typeId = spv::NoResult;
 
-                if (spv::InstructionDesc[opCode].hasType())
+                if (spv::InstructionDesc[enumCast(opCode)].hasType())
                     typeId = asId(word++);
 
                 // If there's a result ID, remember the size of its type
-                if (spv::InstructionDesc[opCode].hasResult()) {
+                if (spv::InstructionDesc[enumCast(opCode)].hasResult()) {
                     const spv::Id resultId = asId(word++);
                     idPosR[resultId] = start;
 
@@ -531,19 +547,22 @@ namespace spv {
             return nextInst;
 
         // Read type and result ID from instruction desc table
-        if (spv::InstructionDesc[opCode].hasType()) {
+        if (spv::InstructionDesc[enumCast(opCode)].hasType()) {
             idFn(asId(word++));
             --numOperands;
         }
 
-        if (spv::InstructionDesc[opCode].hasResult()) {
+        if (spv::InstructionDesc[enumCast(opCode)].hasResult()) {
             idFn(asId(word++));
             --numOperands;
         }
 
         // Extended instructions: currently, assume everything is an ID.
         // TODO: add whatever data we need for exceptions to that
-        if (opCode == spv::OpExtInst) {
+        if (opCode == spv::Op::OpExtInst) {
+
+            idFn(asId(word)); // Instruction set is an ID that also needs to be mapped
+
             word        += 2; // instruction set, and instruction from set
             numOperands -= 2;
 
@@ -565,14 +584,14 @@ namespace spv {
             // opcode being processed is the literal opcode value of the SpecConstantOp.  See the
             // SPIRV spec for details.  This way we will handle IDs and literals as appropriate for
             // the embedded op.
-            if (opCode == spv::OpSpecConstantOp) {
+            if (opCode == spv::Op::OpSpecConstantOp) {
                 if (op == 0) {
                     opCode = asOpCode(word++);  // this is the opcode embedded in the SpecConstantOp.
                     --numOperands;
                 }
             }
 
-            switch (spv::InstructionDesc[opCode].operands.getClass(op)) {
+            switch (spv::InstructionDesc[enumCast(opCode)].operands.getClass(op)) {
             case spv::OperandId:
             case spv::OperandScope:
             case spv::OperandMemorySemantics:
@@ -596,7 +615,7 @@ namespace spv {
                 return nextInst;
 
             case spv::OperandVariableLiteralId: {
-                if (opCode == OpSwitch) {
+                if (opCode == Op::OpSwitch) {
                     // word-2 is the position of the selector ID.  OpSwitch Literals match its type.
                     // In case the IDs are currently being remapped, we get the word[-2] ID from
                     // the circular idBuffer.
@@ -625,12 +644,50 @@ namespace spv {
                 break;
             }
 
+            case spv::OperandVariableLiteralStrings:
+                return nextInst;
+
             // Execution mode might have extra literal operands.  Skip them.
             case spv::OperandExecutionMode:
                 return nextInst;
 
+            case spv::OperandMemoryAccess:
+                {
+                    uint32_t mask = spv[word];
+                    if (mask & uint32_t(spv::MemoryAccessMask::Aligned)) {
+                        ++word;
+                        --numOperands;
+                    }
+                    if (mask & uint32_t(spv::MemoryAccessMask::MakePointerAvailable |
+                                        spv::MemoryAccessMask::MakePointerVisible)) {
+                        idFn(asId(word+1));
+                        ++word;
+                        --numOperands;
+                    }
+                    ++word;
+                }
+                break;
+
+            case spv::OperandTensorAddressingOperands:
+                {
+                    uint32_t mask = spv[word];
+                    if (mask & uint32_t(spv::TensorAddressingOperandsMask::TensorView)) {
+                        idFn(asId(word+1));
+                        ++word;
+                        --numOperands;
+                    }
+                    if (mask & uint32_t(spv::TensorAddressingOperandsMask::DecodeFunc)) {
+                        idFn(asId(word+1));
+                        ++word;
+                        --numOperands;
+                    }
+                    ++word;
+                }
+                break;
+
             // Single word operands we simply ignore, as they hold no IDs
             case spv::OperandLiteralNumber:
+            case spv::OperandOptionalLiteral:
             case spv::OperandSource:
             case spv::OperandExecutionModel:
             case spv::OperandAddressing:
@@ -653,11 +710,11 @@ namespace spv {
             case spv::OperandSelect:
             case spv::OperandLoop:
             case spv::OperandFunction:
-            case spv::OperandMemoryAccess:
             case spv::OperandGroupOperation:
             case spv::OperandKernelEnqueueFlags:
             case spv::OperandKernelProfilingInfo:
             case spv::OperandCapability:
+            case spv::OperandCooperativeMatrixOperands:
                 ++word;
                 break;
 
@@ -744,26 +801,26 @@ namespace spv {
             const unsigned start  = instPos[entry];
             const spv::Op  opCode = asOpCode(start);
 
-            if (opCode == spv::OpFunction)
+            if (opCode == spv::Op::OpFunction)
                 fnId   = asId(start + 2);
 
-            if (opCode == spv::OpFunctionEnd)
+            if (opCode == spv::Op::OpFunctionEnd)
                 fnId = spv::NoResult;
 
             if (fnId != spv::NoResult) { // if inside a function
-                if (spv::InstructionDesc[opCode].hasResult()) {
-                    const unsigned word    = start + (spv::InstructionDesc[opCode].hasType() ? 2 : 1);
+                if (spv::InstructionDesc[enumCast(opCode)].hasResult()) {
+                    const unsigned word    = start + (spv::InstructionDesc[enumCast(opCode)].hasType() ? 2 : 1);
                     const spv::Id  resId   = asId(word);
                     std::uint32_t  hashval = fnId * 17; // small prime
 
                     for (unsigned i = entry-1; i >= entry-windowSize; --i) {
-                        if (asOpCode(instPos[i]) == spv::OpFunction)
+                        if (asOpCode(instPos[i]) == spv::Op::OpFunction)
                             break;
                         hashval = hashval * 30103 + asOpCodeHash(instPos[i]); // 30103 = semiarbitrary prime
                     }
 
                     for (unsigned i = entry; i <= entry + windowSize; ++i) {
-                        if (asOpCode(instPos[i]) == spv::OpFunctionEnd)
+                        if (asOpCode(instPos[i]) == spv::Op::OpFunctionEnd)
                             break;
                         hashval = hashval * 30103 + asOpCodeHash(instPos[i]); // 30103 = semiarbitrary prime
                     }
@@ -778,7 +835,7 @@ namespace spv {
             }
         }
 
-        spv::Op          thisOpCode(spv::OpNop);
+        spv::Op thisOpCode(spv::Op::OpNop);
         std::unordered_map<int, int> opCounter;
         int              idCounter(0);
         fnId = spv::NoResult;
@@ -786,48 +843,56 @@ namespace spv {
         process(
             [&](spv::Op opCode, unsigned start) {
                 switch (opCode) {
-                case spv::OpFunction:
+                case spv::Op::OpFunction:
                     // Reset counters at each function
                     idCounter = 0;
                     opCounter.clear();
                     fnId = asId(start + 2);
                     break;
 
-                case spv::OpImageSampleImplicitLod:
-                case spv::OpImageSampleExplicitLod:
-                case spv::OpImageSampleDrefImplicitLod:
-                case spv::OpImageSampleDrefExplicitLod:
-                case spv::OpImageSampleProjImplicitLod:
-                case spv::OpImageSampleProjExplicitLod:
-                case spv::OpImageSampleProjDrefImplicitLod:
-                case spv::OpImageSampleProjDrefExplicitLod:
-                case spv::OpDot:
-                case spv::OpCompositeExtract:
-                case spv::OpCompositeInsert:
-                case spv::OpVectorShuffle:
-                case spv::OpLabel:
-                case spv::OpVariable:
+                case spv::Op::OpImageSampleImplicitLod:
+                case spv::Op::OpImageSampleExplicitLod:
+                case spv::Op::OpImageSampleDrefImplicitLod:
+                case spv::Op::OpImageSampleDrefExplicitLod:
+                case spv::Op::OpImageSampleProjImplicitLod:
+                case spv::Op::OpImageSampleProjExplicitLod:
+                case spv::Op::OpImageSampleProjDrefImplicitLod:
+                case spv::Op::OpImageSampleProjDrefExplicitLod:
+                case spv::Op::OpDot:
+                case spv::Op::OpCompositeExtract:
+                case spv::Op::OpCompositeInsert:
+                case spv::Op::OpVectorShuffle:
+                case spv::Op::OpLabel:
+                case spv::Op::OpVariable:
 
-                case spv::OpAccessChain:
-                case spv::OpLoad:
-                case spv::OpStore:
-                case spv::OpCompositeConstruct:
-                case spv::OpFunctionCall:
-                    ++opCounter[opCode];
+                case spv::Op::OpAccessChain:
+                case spv::Op::OpLoad:
+                case spv::Op::OpStore:
+                case spv::Op::OpCompositeConstruct:
+                case spv::Op::OpFunctionCall:
+                    ++opCounter[enumCast(opCode)];
                     idCounter = 0;
                     thisOpCode = opCode;
                     break;
                 default:
-                    thisOpCode = spv::OpNop;
+                    thisOpCode = spv::Op::OpNop;
                 }
 
                 return false;
             },
 
             [&](spv::Id& id) {
-                if (thisOpCode != spv::OpNop) {
+                if (thisOpCode != spv::Op::OpNop) {
                     ++idCounter;
-                    const std::uint32_t hashval = opCounter[thisOpCode] * thisOpCode * 50047 + idCounter + fnId * 117;
+                    const std::uint32_t hashval =
+                        // Explicitly cast operands to unsigned int to avoid integer
+                        // promotion to signed int followed by integer overflow,
+                        // which would result in undefined behavior.
+                        static_cast<unsigned int>(opCounter[enumCast(thisOpCode)])
+                        * enumCast(thisOpCode)
+                        * 50047
+                        + idCounter
+                        + static_cast<unsigned int>(fnId) * 117;
 
                     if (isOldIdUnmapped(id))
                         localId(id, nextUnusedId(hashval % softTypeIdLimit + firstMappedID));
@@ -846,16 +911,16 @@ namespace spv {
         process(
             [&](spv::Op opCode, unsigned start) {
                 // Add inputs and uniforms to the map
-                if ((opCode == spv::OpVariable && asWordCount(start) == 4) &&
-                    (spv[start+3] == spv::StorageClassUniform ||
-                    spv[start+3] == spv::StorageClassUniformConstant ||
-                    spv[start+3] == spv::StorageClassInput))
+                if ((opCode == spv::Op::OpVariable && asWordCount(start) == 4) &&
+                    (spv[start+3] == (unsigned)spv::StorageClass::Uniform ||
+                    spv[start+3] == (unsigned)spv::StorageClass::UniformConstant ||
+                    spv[start+3] == (unsigned)spv::StorageClass::Input))
                     fnLocalVars.insert(asId(start+2));
 
-                if (opCode == spv::OpAccessChain && fnLocalVars.count(asId(start+3)) > 0)
+                if (opCode == spv::Op::OpAccessChain && fnLocalVars.count(asId(start+3)) > 0)
                     fnLocalVars.insert(asId(start+2));
 
-                if (opCode == spv::OpLoad && fnLocalVars.count(asId(start+3)) > 0) {
+                if (opCode == spv::Op::OpLoad && fnLocalVars.count(asId(start+3)) > 0) {
                     idMap[asId(start+2)] = asId(start+3);
                     stripInst(start);
                 }
@@ -876,11 +941,11 @@ namespace spv {
         process(
             [&](spv::Op opCode, unsigned start) {
                 // Add inputs and uniforms to the map
-                if ((opCode == spv::OpVariable && asWordCount(start) == 4) &&
-                    (spv[start+3] == spv::StorageClassOutput))
+                if ((opCode == spv::Op::OpVariable && asWordCount(start) == 4) &&
+                    (spv[start+3] == (int)spv::StorageClass::Output))
                     fnLocalVars.insert(asId(start+2));
 
-                if (opCode == spv::OpStore && fnLocalVars.count(asId(start+1)) > 0) {
+                if (opCode == spv::Op::OpStore && fnLocalVars.count(asId(start+1)) > 0) {
                     idMap[asId(start+2)] = asId(start+1);
                     stripInst(start);
                 }
@@ -921,19 +986,19 @@ namespace spv {
                     ++blockNum;
 
                 // Add local variables to the map
-                if ((opCode == spv::OpVariable && spv[start+3] == spv::StorageClassFunction && asWordCount(start) == 4)) {
+                if ((opCode == spv::Op::OpVariable && spv[start+3] == (unsigned)spv::StorageClass::Function && asWordCount(start) == 4)) {
                     fnLocalVars.insert(asId(start+2));
                     return true;
                 }
 
                 // Ignore process vars referenced via access chain
-                if ((opCode == spv::OpAccessChain || opCode == spv::OpInBoundsAccessChain) && fnLocalVars.count(asId(start+3)) > 0) {
+                if ((opCode == spv::Op::OpAccessChain || opCode == spv::Op::OpInBoundsAccessChain) && fnLocalVars.count(asId(start+3)) > 0) {
                     fnLocalVars.erase(asId(start+3));
                     idMap.erase(asId(start+3));
                     return true;
                 }
 
-                if (opCode == spv::OpLoad && fnLocalVars.count(asId(start+3)) > 0) {
+                if (opCode == spv::Op::OpLoad && fnLocalVars.count(asId(start + 3)) > 0) {
                     const spv::Id varId = asId(start+3);
 
                     // Avoid loads before stores
@@ -943,7 +1008,7 @@ namespace spv {
                     }
 
                     // don't do for volatile references
-                    if (wordCount > 4 && (spv[start+4] & spv::MemoryAccessVolatileMask)) {
+                    if (wordCount > 4 && (spv[start+4] & spv::MemoryAccessMask::Volatile)) {
                         fnLocalVars.erase(varId);
                         idMap.erase(varId);
                     }
@@ -959,7 +1024,7 @@ namespace spv {
                     return true;
                 }
 
-                if (opCode == spv::OpStore && fnLocalVars.count(asId(start+1)) > 0) {
+                if (opCode == spv::Op::OpStore && fnLocalVars.count(asId(start+1)) > 0) {
                     const spv::Id varId = asId(start+1);
 
                     if (idMap.find(varId) == idMap.end()) {
@@ -971,7 +1036,7 @@ namespace spv {
                     }
 
                     // don't do for volatile references
-                    if (wordCount > 3 && (spv[start+3] & spv::MemoryAccessVolatileMask)) {
+                    if (wordCount > 3 && (spv[start+3] & spv::MemoryAccessMask::Volatile)) {
                         fnLocalVars.erase(asId(start+3));
                         idMap.erase(asId(start+3));
                     }
@@ -1004,7 +1069,7 @@ namespace spv {
 
         process(
             [&](spv::Op opCode, unsigned start) {
-                if (opCode == spv::OpLoad && fnLocalVars.count(asId(start+3)) > 0)
+                if (opCode == spv::Op::OpLoad && fnLocalVars.count(asId(start+3)) > 0)
                     idMap[asId(start+2)] = idMap[asId(start+3)];
                 return false;
             },
@@ -1030,9 +1095,9 @@ namespace spv {
         // Remove the load/store/variables for the ones we've discovered
         process(
             [&](spv::Op opCode, unsigned start) {
-                if ((opCode == spv::OpLoad  && fnLocalVars.count(asId(start+3)) > 0) ||
-                    (opCode == spv::OpStore && fnLocalVars.count(asId(start+1)) > 0) ||
-                    (opCode == spv::OpVariable && fnLocalVars.count(asId(start+2)) > 0)) {
+                if ((opCode == spv::Op::OpLoad && fnLocalVars.count(asId(start+3)) > 0) ||
+                    (opCode == spv::Op::OpStore && fnLocalVars.count(asId(start+1)) > 0) ||
+                    (opCode == spv::Op::OpVariable && fnLocalVars.count(asId(start+2)) > 0)) {
 
                     stripInst(start);
                     return true;
@@ -1111,10 +1176,10 @@ namespace spv {
         // Count function variable use
         process(
             [&](spv::Op opCode, unsigned start) {
-                if (opCode == spv::OpVariable) {
+                if (opCode == spv::Op::OpVariable) {
                     ++varUseCount[asId(start+2)];
                     return true;
-                } else if (opCode == spv::OpEntryPoint) {
+                } else if (opCode == spv::Op::OpEntryPoint) {
                     const int wordCount = asWordCount(start);
                     for (int i = 4; i < wordCount; i++) {
                         ++varUseCount[asId(start+i)];
@@ -1134,9 +1199,9 @@ namespace spv {
         process(
             [&](spv::Op opCode, unsigned start) {
                 spv::Id id = spv::NoResult;
-                if (opCode == spv::OpVariable)
+                if (opCode == spv::Op::OpVariable)
                     id = asId(start+2);
-                if (opCode == spv::OpDecorate || opCode == spv::OpName)
+                if (opCode == spv::Op::OpDecorate || opCode == spv::Op::OpName)
                     id = asId(start+1);
 
                 if (id != spv::NoResult && varUseCount[id] == 1)
@@ -1280,30 +1345,30 @@ namespace spv {
         const spv::Op  opCode      = asOpCode(typeStart);
 
         switch (opCode) {
-        case spv::OpTypeVoid:         return 0;
-        case spv::OpTypeBool:         return 1;
-        case spv::OpTypeInt:          return 3 + (spv[typeStart+3]);
-        case spv::OpTypeFloat:        return 5;
-        case spv::OpTypeVector:
+        case spv::Op::OpTypeVoid:         return 0;
+        case spv::Op::OpTypeBool:         return 1;
+        case spv::Op::OpTypeInt:          return 3 + (spv[typeStart+3]);
+        case spv::Op::OpTypeFloat:        return 5;
+        case spv::Op::OpTypeVector:
             return 6 + hashType(idPos(spv[typeStart+2])) * (spv[typeStart+3] - 1);
-        case spv::OpTypeMatrix:
+        case spv::Op::OpTypeMatrix:
             return 30 + hashType(idPos(spv[typeStart+2])) * (spv[typeStart+3] - 1);
-        case spv::OpTypeImage:
+        case spv::Op::OpTypeImage:
             return 120 + hashType(idPos(spv[typeStart+2])) +
                 spv[typeStart+3] +            // dimensionality
                 spv[typeStart+4] * 8 * 16 +   // depth
                 spv[typeStart+5] * 4 * 16 +   // arrayed
                 spv[typeStart+6] * 2 * 16 +   // multisampled
                 spv[typeStart+7] * 1 * 16;    // format
-        case spv::OpTypeSampler:
+        case spv::Op::OpTypeSampler:
             return 500;
-        case spv::OpTypeSampledImage:
+        case spv::Op::OpTypeSampledImage:
             return 502;
-        case spv::OpTypeArray:
+        case spv::Op::OpTypeArray:
             return 501 + hashType(idPos(spv[typeStart+2])) * spv[typeStart+3];
-        case spv::OpTypeRuntimeArray:
+        case spv::Op::OpTypeRuntimeArray:
             return 5000  + hashType(idPos(spv[typeStart+2]));
-        case spv::OpTypeStruct:
+        case spv::Op::OpTypeStruct:
             {
                 std::uint32_t hash = 10000;
                 for (unsigned w=2; w < wordCount; ++w)
@@ -1311,9 +1376,9 @@ namespace spv {
                 return hash;
             }
 
-        case spv::OpTypeOpaque:         return 6000 + spv[typeStart+2];
-        case spv::OpTypePointer:        return 100000  + hashType(idPos(spv[typeStart+3]));
-        case spv::OpTypeFunction:
+        case spv::Op::OpTypeOpaque:         return 6000 + spv[typeStart+2];
+        case spv::Op::OpTypePointer:        return 100000  + hashType(idPos(spv[typeStart+3]));
+        case spv::Op::OpTypeFunction:
             {
                 std::uint32_t hash = 200000;
                 for (unsigned w=2; w < wordCount; ++w)
@@ -1321,33 +1386,35 @@ namespace spv {
                 return hash;
             }
 
-        case spv::OpTypeEvent:           return 300000;
-        case spv::OpTypeDeviceEvent:     return 300001;
-        case spv::OpTypeReserveId:       return 300002;
-        case spv::OpTypeQueue:           return 300003;
-        case spv::OpTypePipe:            return 300004;
-        case spv::OpConstantTrue:        return 300007;
-        case spv::OpConstantFalse:       return 300008;
-        case spv::OpConstantComposite:
+        case spv::Op::OpTypeEvent:                      return 300000;
+        case spv::Op::OpTypeDeviceEvent:                return 300001;
+        case spv::Op::OpTypeReserveId:                  return 300002;
+        case spv::Op::OpTypeQueue:                      return 300003;
+        case spv::Op::OpTypePipe:                       return 300004;
+        case spv::Op::OpConstantTrue:                   return 300007;
+        case spv::Op::OpConstantFalse:                  return 300008;
+        case spv::Op::OpTypeRayQueryKHR:                return 300009;
+        case spv::Op::OpTypeAccelerationStructureKHR:   return 300010;
+        case spv::Op::OpConstantComposite:
             {
                 std::uint32_t hash = 300011 + hashType(idPos(spv[typeStart+1]));
                 for (unsigned w=3; w < wordCount; ++w)
                     hash += w * hashType(idPos(spv[typeStart+w]));
                 return hash;
             }
-        case spv::OpConstant:
+        case spv::Op::OpConstant:
             {
                 std::uint32_t hash = 400011 + hashType(idPos(spv[typeStart+1]));
                 for (unsigned w=3; w < wordCount; ++w)
                     hash += w * spv[typeStart+w];
                 return hash;
             }
-        case spv::OpConstantNull:
+        case spv::Op::OpConstantNull:
             {
                 std::uint32_t hash = 500009 + hashType(idPos(spv[typeStart+1]));
                 return hash;
             }
-        case spv::OpConstantSampler:
+        case spv::Op::OpConstantSampler:
             {
                 std::uint32_t hash = 600011 + hashType(idPos(spv[typeStart+1]));
                 for (unsigned w=3; w < wordCount; ++w)
@@ -1474,14 +1541,23 @@ namespace spv {
     }
 
     // remap from a memory image
-    void spirvbin_t::remap(std::vector<std::uint32_t>& in_spv, std::uint32_t opts)
+    void spirvbin_t::remap(std::vector<std::uint32_t>& in_spv, const std::vector<std::string>& whiteListStrings,
+                           std::uint32_t opts)
     {
+        stripWhiteList = whiteListStrings;
         spv.swap(in_spv);
         remap(opts);
         spv.swap(in_spv);
     }
 
-} // namespace SPV
+    // remap from a memory image - legacy interface without white list
+    void spirvbin_t::remap(std::vector<std::uint32_t>& in_spv, std::uint32_t opts)
+    {
+      stripWhiteList.clear();
+      spv.swap(in_spv);
+      remap(opts);
+      spv.swap(in_spv);
+    }
 
-#endif // defined (use_cpp11)
+} // namespace SPV
 

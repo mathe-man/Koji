@@ -45,25 +45,41 @@ uint32_t ValueNumberTable::AssignValueNumber(Instruction* inst) {
     return value;
   }
 
+  auto assign_new_number = [this](Instruction* i) {
+    const auto new_value = TakeNextValueNumber();
+    id_to_value_[i->result_id()] = new_value;
+    return new_value;
+  };
+
   // If the instruction has other side effects, then it must
   // have its own value number.
-  // OpSampledImage and OpImage must remain in the same basic block in which
-  // they are used, because of this we will assign each one it own value number.
-  if (!context()->IsCombinatorInstruction(inst)) {
-    value = TakeNextValueNumber();
-    id_to_value_[inst->result_id()] = value;
-    return value;
+  if (!context()->IsCombinatorInstruction(inst) &&
+      !inst->IsCommonDebugInstr()) {
+    return assign_new_number(inst);
   }
 
+  // OpSampledImage and OpImage must remain in the same basic block in which
+  // they are used, because of this we will assign each one it own value number.
   switch (inst->opcode()) {
-    case SpvOpSampledImage:
-    case SpvOpImage:
-    case SpvOpVariable:
-      value = TakeNextValueNumber();
-      id_to_value_[inst->result_id()] = value;
-      return value;
+    case spv::Op::OpSampledImage:
+    case spv::Op::OpImage:
+    case spv::Op::OpVariable:
+      return assign_new_number(inst);
     default:
       break;
+  }
+
+  // A load that yields an image, sampler, or sampled image must remain in
+  // the same basic block.  So assign it its own value number.
+  if (inst->IsLoad()) {
+    switch (context()->get_def_use_mgr()->GetDef(inst->type_id())->opcode()) {
+      case spv::Op::OpTypeSampledImage:
+      case spv::Op::OpTypeImage:
+      case spv::Op::OpTypeSampler:
+        return assign_new_number(inst);
+      default:
+        break;
+    }
   }
 
   // If it is a load from memory that can be modified, we have to assume the
@@ -73,15 +89,13 @@ uint32_t ValueNumberTable::AssignValueNumber(Instruction* inst) {
   // read only.  However, if this is ever relaxed because we analyze stores, we
   // will have to add a new case for volatile loads.
   if (inst->IsLoad() && !inst->IsReadOnlyLoad()) {
-    value = TakeNextValueNumber();
-    id_to_value_[inst->result_id()] = value;
-    return value;
+    return assign_new_number(inst);
   }
 
   analysis::DecorationManager* dec_mgr = context()->get_decoration_mgr();
 
   // When we copy an object, the value numbers should be the same.
-  if (inst->opcode() == SpvOpCopyObject &&
+  if (inst->opcode() == spv::Op::OpCopyObject &&
       dec_mgr->HaveTheSameDecorations(inst->result_id(),
                                       inst->GetSingleWordInOperand(0))) {
     value = GetValueNumber(inst->GetSingleWordInOperand(0));
@@ -93,7 +107,7 @@ uint32_t ValueNumberTable::AssignValueNumber(Instruction* inst) {
 
   // Phi nodes are a type of copy.  If all of the inputs have the same value
   // number, then we can assign the result of the phi the same value number.
-  if (inst->opcode() == SpvOpPhi && inst->NumInOperands() > 0 &&
+  if (inst->opcode() == spv::Op::OpPhi && inst->NumInOperands() > 0 &&
       dec_mgr->HaveTheSameDecorations(inst->result_id(),
                                       inst->GetSingleWordInOperand(0))) {
     value = GetValueNumber(inst->GetSingleWordInOperand(0));
@@ -173,6 +187,12 @@ void ValueNumberTable::BuildDominatorTreeValueNumberTable() {
     }
   }
 
+  for (auto& inst : context()->module()->ext_inst_debuginfo()) {
+    if (inst.result_id() != 0) {
+      AssignValueNumber(&inst);
+    }
+  }
+
   for (Function& func : *context()->module()) {
     // For best results we want to traverse the code in reverse post order.
     // This happens naturally because of the forward referencing rules.
@@ -219,7 +239,7 @@ std::size_t ValueTableHash::operator()(const Instruction& inst) const {
   // instructions that are the same except for the result to hash to the
   // same value.
   std::u32string h;
-  h.push_back(inst.opcode());
+  h.push_back(uint32_t(inst.opcode()));
   h.push_back(inst.type_id());
   for (uint32_t i = 0; i < inst.NumInOperands(); ++i) {
     const auto& opnd = inst.GetInOperand(i);

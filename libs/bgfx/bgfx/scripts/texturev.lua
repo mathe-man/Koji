@@ -1,11 +1,15 @@
-project ("texturev")
+--
+-- Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+-- License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
+--
+
+project "texturev"
 	uuid (os.uuid("texturev") )
 	kind "ConsoleApp"
 
 	configuration {}
 
 	includedirs {
-		path.join(BX_DIR,   "include"),
 		path.join(BIMG_DIR, "include"),
 		path.join(BGFX_DIR, "include"),
 		path.join(BGFX_DIR, "3rdparty"),
@@ -23,8 +27,9 @@ project ("texturev")
 		"bimg_decode",
 		"bimg",
 		"bgfx",
-		"bx",
 	}
+
+	using_bx()
 
 	if _OPTIONS["with-sdl"] then
 		defines { "ENTRY_CONFIG_USE_SDL=1" }
@@ -43,20 +48,18 @@ project ("texturev")
 		defines { "ENTRY_CONFIG_USE_GLFW=1" }
 		links   { "glfw3" }
 
-		configuration { "linux or freebsd" }
-			links {
-				"Xrandr",
-				"Xinerama",
-				"Xi",
-				"Xxf86vm",
-				"Xcursor",
-			}
-
-		configuration { "osx" }
+		configuration { "osx*" }
 			linkoptions {
 				"-framework CoreVideo",
-				"-framework IOKit",
 			}
+
+		configuration {}
+	end
+
+	if _OPTIONS["with-libheif"] then
+		links {
+			"heif",
+		}
 
 		configuration {}
 	end
@@ -138,12 +141,13 @@ project ("texturev")
 			"pthread",
 		}
 
-	configuration { "osx" }
+	configuration { "osx*" }
 		linkoptions {
 			"-framework Cocoa",
+			"-framework IOKit",
 			"-framework Metal",
-			"-framework QuartzCore",
 			"-framework OpenGL",
+			"-framework QuartzCore",
 		}
 
 	configuration { "ios*" }
@@ -151,9 +155,10 @@ project ("texturev")
 		linkoptions {
 			"-framework CoreFoundation",
 			"-framework Foundation",
+			"-framework IOKit",
 			"-framework OpenGLES",
-			"-framework UIKit",
 			"-framework QuartzCore",
+			"-framework UIKit",
 		}
 
 	configuration { "xcode*", "ios" }

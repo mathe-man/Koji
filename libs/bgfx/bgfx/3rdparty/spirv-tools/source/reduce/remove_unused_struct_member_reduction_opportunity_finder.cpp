@@ -24,7 +24,14 @@ namespace reduce {
 
 std::vector<std::unique_ptr<ReductionOpportunity>>
 RemoveUnusedStructMemberReductionOpportunityFinder::GetAvailableOpportunities(
-    opt::IRContext* context) const {
+    opt::IRContext* context, uint32_t target_function) const {
+  if (target_function) {
+    // Removing an unused struct member is a global change, as struct types are
+    // global.  We thus do not consider such opportunities if we are targeting
+    // a specific function.
+    return {};
+  }
+
   std::vector<std::unique_ptr<ReductionOpportunity>> result;
 
   // We track those struct members that are never accessed.  We do this by
@@ -36,7 +43,7 @@ RemoveUnusedStructMemberReductionOpportunityFinder::GetAvailableOpportunities(
 
   // Consider every struct type in the module.
   for (auto& type_or_value : context->types_values()) {
-    if (type_or_value.opcode() != SpvOpTypeStruct) {
+    if (type_or_value.opcode() != spv::Op::OpTypeStruct) {
       continue;
     }
 
@@ -53,7 +60,7 @@ RemoveUnusedStructMemberReductionOpportunityFinder::GetAvailableOpportunities(
         &type_or_value,
         [&unused_members](opt::Instruction* user, uint32_t /*operand_index*/) {
           switch (user->opcode()) {
-            case SpvOpMemberName:
+            case spv::Op::OpMemberName:
               unused_members.erase(user->GetSingleWordInOperand(1));
               break;
             default:
@@ -84,8 +91,8 @@ RemoveUnusedStructMemberReductionOpportunityFinder::GetAvailableOpportunities(
           // The way the helper is invoked depends on whether the instruction
           // uses literal or id indices, and the offset into the instruction's
           // input operands from which index operands are provided.
-          case SpvOpAccessChain:
-          case SpvOpInBoundsAccessChain: {
+          case spv::Op::OpAccessChain:
+          case spv::Op::OpInBoundsAccessChain: {
             auto composite_type_id =
                 context->get_def_use_mgr()
                     ->GetDef(context->get_def_use_mgr()
@@ -95,8 +102,8 @@ RemoveUnusedStructMemberReductionOpportunityFinder::GetAvailableOpportunities(
             MarkAccessedMembersAsUsed(context, composite_type_id, 1, false,
                                       inst, &unused_member_to_structs);
           } break;
-          case SpvOpPtrAccessChain:
-          case SpvOpInBoundsPtrAccessChain: {
+          case spv::Op::OpPtrAccessChain:
+          case spv::Op::OpInBoundsPtrAccessChain: {
             auto composite_type_id =
                 context->get_def_use_mgr()
                     ->GetDef(context->get_def_use_mgr()
@@ -106,7 +113,7 @@ RemoveUnusedStructMemberReductionOpportunityFinder::GetAvailableOpportunities(
             MarkAccessedMembersAsUsed(context, composite_type_id, 2, false,
                                       inst, &unused_member_to_structs);
           } break;
-          case SpvOpCompositeExtract: {
+          case spv::Op::OpCompositeExtract: {
             auto composite_type_id =
                 context->get_def_use_mgr()
                     ->GetDef(inst.GetSingleWordInOperand(0))
@@ -114,7 +121,7 @@ RemoveUnusedStructMemberReductionOpportunityFinder::GetAvailableOpportunities(
             MarkAccessedMembersAsUsed(context, composite_type_id, 1, true, inst,
                                       &unused_member_to_structs);
           } break;
-          case SpvOpCompositeInsert: {
+          case spv::Op::OpCompositeInsert: {
             auto composite_type_id =
                 context->get_def_use_mgr()
                     ->GetDef(inst.GetSingleWordInOperand(1))
@@ -129,9 +136,9 @@ RemoveUnusedStructMemberReductionOpportunityFinder::GetAvailableOpportunities(
     }
   }
 
-  // We now know those struct indices that are unsed, and we make a reduction
+  // We now know those struct indices that are unused, and we make a reduction
   // opportunity for each of them. By mapping each relevant member index to the
-  // structs in which it is unsed, we will group all opportunities to remove
+  // structs in which it is unused, we will group all opportunities to remove
   // member k of a struct (for some k) together.  This reduces the likelihood
   // that opportunities to remove members from the same struct will be adjacent,
   // which is good because such opportunities mutually disable one another.
@@ -156,13 +163,13 @@ void RemoveUnusedStructMemberReductionOpportunityFinder::
        i < composite_access_instruction.NumInOperands(); i++) {
     auto type_inst = context->get_def_use_mgr()->GetDef(next_type);
     switch (type_inst->opcode()) {
-      case SpvOpTypeArray:
-      case SpvOpTypeMatrix:
-      case SpvOpTypeRuntimeArray:
-      case SpvOpTypeVector:
+      case spv::Op::OpTypeArray:
+      case spv::Op::OpTypeMatrix:
+      case spv::Op::OpTypeRuntimeArray:
+      case spv::Op::OpTypeVector:
         next_type = type_inst->GetSingleWordInOperand(0);
         break;
-      case SpvOpTypeStruct: {
+      case spv::Op::OpTypeStruct: {
         uint32_t index_operand =
             composite_access_instruction.GetSingleWordInOperand(i);
         uint32_t member = literal_indices ? index_operand

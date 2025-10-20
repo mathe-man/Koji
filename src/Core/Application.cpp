@@ -50,10 +50,10 @@ bool Application::Run() const {
     auto entity = registry.create();
     auto mesh = GraphicsResourcesLoader::CreateCube();
 
-    /*mesh.program = GraphicsResourcesLoader::LoadProgram(
-        "shaders/vs.bin",
-        "shaders/fs.bin");
-*/
+    mesh.program = GraphicsResourcesLoader::LoadProgram(
+        "../resources/shaders/compiled/basic_vs_spv.bin",
+        "../resources/shaders/compiled/basic_fs_spv.bin");
+
     registry.emplace<Mesh>(entity, mesh);
     registry.emplace<Transform>(entity, Transform{
         {0.0f, 0.0f, 0.0f},

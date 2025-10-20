@@ -7,7 +7,12 @@ namespace Koji {
     class GraphicsResourcesLoader {
     public:
         // Struct with a 3D position and 4 channel color
-        struct PosColorVertex;
+        struct PosColorVertex {
+            float x, y, z;
+            uint32_t abgr;
+            static bgfx::VertexLayout init();
+        };
+        static bgfx::VertexLayout s_layout;
 
         static Mesh CreateCube();
 

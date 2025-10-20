@@ -1,6 +1,6 @@
 /*
- * Copyright 2010-2020 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
 #ifndef BX_SIMD_T_H_HEADER_GUARD
@@ -9,7 +9,7 @@
 
 namespace bx
 {
-	BX_CONST_FUNC float sqrtRef(float);
+	BX_CONSTEXPR_FUNC float sqrtRef(float);
 
 #define ELEMx 0
 #define ELEMy 1

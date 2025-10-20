@@ -22,7 +22,9 @@
 #include <vector>
 
 #include "source/ext_inst.h"
+#include "source/opcode.h"
 #include "source/table.h"
+#include "source/table2.h"
 #include "spirv-tools/libspirv.h"
 
 namespace spvtools {
@@ -42,7 +44,7 @@ class Instruction {
 
   uint32_t id() const { return inst_.result_id; }
   uint32_t type_id() const { return inst_.type_id; }
-  SpvOp opcode() const { return static_cast<SpvOp>(inst_.opcode); }
+  spv::Op opcode() const { return static_cast<spv::Op>(inst_.opcode); }
 
   /// Returns the Function where the instruction was defined. nullptr if it was
   /// defined outside of a Function
@@ -82,18 +84,16 @@ class Instruction {
   const spv_parsed_instruction_t& c_inst() const { return inst_; }
 
   /// Provides direct access to instructions spv_ext_inst_type_t object.
-  const spv_ext_inst_type_t& ext_inst_type() const {
-    return inst_.ext_inst_type;
-  }
+  spv_ext_inst_type_t ext_inst_type() const { return inst_.ext_inst_type; }
 
   bool IsNonSemantic() const {
-    return opcode() == SpvOp::SpvOpExtInst &&
+    return spvIsExtendedInstruction(opcode()) &&
            spvExtInstIsNonSemantic(inst_.ext_inst_type);
   }
 
   /// True if this is an OpExtInst for debug info extension.
   bool IsDebugInfo() const {
-    return opcode() == SpvOp::SpvOpExtInst &&
+    return spvIsExtendedInstruction(opcode()) &&
            spvExtInstIsDebugInfo(inst_.ext_inst_type);
   }
 
@@ -112,7 +112,7 @@ class Instruction {
  private:
   const std::vector<uint32_t> words_;
   const std::vector<spv_parsed_operand_t> operands_;
-  spv_parsed_instruction_t inst_;
+  const spv_parsed_instruction_t inst_;
   size_t line_num_ = 0;
 
   /// The function in which this instruction was declared
@@ -132,6 +132,9 @@ bool operator<(const Instruction& lhs, const Instruction& rhs);
 bool operator<(const Instruction& lhs, uint32_t rhs);
 bool operator==(const Instruction& lhs, const Instruction& rhs);
 bool operator==(const Instruction& lhs, uint32_t rhs);
+
+template <>
+std::string Instruction::GetOperandAs<std::string>(size_t index) const;
 
 }  // namespace val
 }  // namespace spvtools

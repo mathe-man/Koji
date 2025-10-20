@@ -1,4 +1,6 @@
 // Copyright (c) 2016 Google Inc.
+// Modifications Copyright (C) 2024 Advanced Micro Devices, Inc. All rights
+// reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,26 +24,18 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "spirv-tools/libspirv.h"
-
+#include "source/binary.h"
 #include "source/latest_version_spirv_header.h"
 #include "source/parsed_operand.h"
+#include "source/table2.h"
+#include "source/to_string.h"
+#include "spirv-tools/libspirv.h"
 
 namespace spvtools {
-namespace {
 
-// Converts a uint32_t to its string decimal representation.
-std::string to_string(uint32_t id) {
-  // Use stringstream, since some versions of Android compilers lack
-  // std::to_string.
-  std::stringstream os;
-  os << id;
-  return os.str();
+NameMapper GetTrivialNameMapper() {
+  return [](uint32_t i) { return spvtools::to_string(i); };
 }
-
-}  // anonymous namespace
-
-NameMapper GetTrivialNameMapper() { return to_string; }
 
 FriendlyNameMapper::FriendlyNameMapper(const spv_const_context context,
                                        const uint32_t* code,
@@ -100,18 +94,18 @@ void FriendlyNameMapper::SaveName(uint32_t id,
 void FriendlyNameMapper::SaveBuiltInName(uint32_t target_id,
                                          uint32_t built_in) {
 #define GLCASE(name)                  \
-  case SpvBuiltIn##name:              \
+  case spv::BuiltIn::name:            \
     SaveName(target_id, "gl_" #name); \
     return;
 #define GLCASE2(name, suggested)           \
-  case SpvBuiltIn##name:                   \
+  case spv::BuiltIn::name:                 \
     SaveName(target_id, "gl_" #suggested); \
     return;
 #define CASE(name)              \
-  case SpvBuiltIn##name:        \
+  case spv::BuiltIn::name:      \
     SaveName(target_id, #name); \
     return;
-  switch (built_in) {
+  switch (spv::BuiltIn(built_in)) {
     GLCASE(Position)
     GLCASE(PointSize)
     GLCASE(ClipDistance)
@@ -153,6 +147,7 @@ void FriendlyNameMapper::SaveBuiltInName(uint32_t target_id,
     CASE(SubgroupLocalInvocationId)
     GLCASE(VertexIndex)
     GLCASE(InstanceIndex)
+    GLCASE(BaseInstance)
     CASE(SubgroupEqMaskKHR)
     CASE(SubgroupGeMaskKHR)
     CASE(SubgroupGtMaskKHR)
@@ -169,28 +164,28 @@ void FriendlyNameMapper::SaveBuiltInName(uint32_t target_id,
 spv_result_t FriendlyNameMapper::ParseInstruction(
     const spv_parsed_instruction_t& inst) {
   const auto result_id = inst.result_id;
-  switch (inst.opcode) {
-    case SpvOpName:
-      SaveName(inst.words[1], reinterpret_cast<const char*>(inst.words + 2));
+  switch (spv::Op(inst.opcode)) {
+    case spv::Op::OpName:
+      SaveName(inst.words[1], spvDecodeLiteralStringOperand(inst, 1));
       break;
-    case SpvOpDecorate:
+    case spv::Op::OpDecorate:
       // Decorations come after OpName.  So OpName will take precedence over
       // decorations.
       //
       // In theory, we should also handle OpGroupDecorate.  But that's unlikely
       // to occur.
-      if (inst.words[2] == SpvDecorationBuiltIn) {
+      if (spv::Decoration(inst.words[2]) == spv::Decoration::BuiltIn) {
         assert(inst.num_words > 3);
         SaveBuiltInName(inst.words[1], inst.words[3]);
       }
       break;
-    case SpvOpTypeVoid:
+    case spv::Op::OpTypeVoid:
       SaveName(result_id, "void");
       break;
-    case SpvOpTypeBool:
+    case spv::Op::OpTypeBool:
       SaveName(result_id, "bool");
       break;
-    case SpvOpTypeInt: {
+    case spv::Op::OpTypeInt: {
       std::string signedness;
       std::string root;
       const auto bit_width = inst.words[2];
@@ -215,8 +210,22 @@ spv_result_t FriendlyNameMapper::ParseInstruction(
       if (0 == inst.words[3]) signedness = "u";
       SaveName(result_id, signedness + root);
     } break;
-    case SpvOpTypeFloat: {
+    case spv::Op::OpTypeFloat: {
       const auto bit_width = inst.words[2];
+      if (inst.num_words > 3) {
+        if (spv::FPEncoding(inst.words[3]) == spv::FPEncoding::BFloat16KHR) {
+          SaveName(result_id, "bfloat16");
+          break;
+        }
+        if (spv::FPEncoding(inst.words[3]) == spv::FPEncoding::Float8E4M3EXT) {
+          SaveName(result_id, "fp8e4m3");
+          break;
+        }
+        if (spv::FPEncoding(inst.words[3]) == spv::FPEncoding::Float8E5M2EXT) {
+          SaveName(result_id, "fp8e5m2");
+          break;
+        }
+      }
       switch (bit_width) {
         case 16:
           SaveName(result_id, "half");
@@ -232,69 +241,77 @@ spv_result_t FriendlyNameMapper::ParseInstruction(
           break;
       }
     } break;
-    case SpvOpTypeVector:
+    case spv::Op::OpTypeVector:
       SaveName(result_id, std::string("v") + to_string(inst.words[3]) +
                               NameForId(inst.words[2]));
       break;
-    case SpvOpTypeMatrix:
+    case spv::Op::OpTypeMatrix:
       SaveName(result_id, std::string("mat") + to_string(inst.words[3]) +
                               NameForId(inst.words[2]));
       break;
-    case SpvOpTypeArray:
+    case spv::Op::OpTypeArray:
       SaveName(result_id, std::string("_arr_") + NameForId(inst.words[2]) +
                               "_" + NameForId(inst.words[3]));
       break;
-    case SpvOpTypeRuntimeArray:
+    case spv::Op::OpTypeRuntimeArray:
       SaveName(result_id,
                std::string("_runtimearr_") + NameForId(inst.words[2]));
       break;
-    case SpvOpTypePointer:
+    case spv::Op::OpTypeNodePayloadArrayAMDX:
+      SaveName(result_id,
+               std::string("_payloadarr_") + NameForId(inst.words[2]));
+      break;
+    case spv::Op::OpTypePointer:
       SaveName(result_id, std::string("_ptr_") +
                               NameForEnumOperand(SPV_OPERAND_TYPE_STORAGE_CLASS,
                                                  inst.words[2]) +
                               "_" + NameForId(inst.words[3]));
       break;
-    case SpvOpTypePipe:
+    case spv::Op::OpTypeUntypedPointerKHR:
+      SaveName(result_id, std::string("_ptr_") +
+                              NameForEnumOperand(SPV_OPERAND_TYPE_STORAGE_CLASS,
+                                                 inst.words[2]));
+      break;
+    case spv::Op::OpTypePipe:
       SaveName(result_id,
                std::string("Pipe") +
                    NameForEnumOperand(SPV_OPERAND_TYPE_ACCESS_QUALIFIER,
                                       inst.words[2]));
       break;
-    case SpvOpTypeEvent:
+    case spv::Op::OpTypeEvent:
       SaveName(result_id, "Event");
       break;
-    case SpvOpTypeDeviceEvent:
+    case spv::Op::OpTypeDeviceEvent:
       SaveName(result_id, "DeviceEvent");
       break;
-    case SpvOpTypeReserveId:
+    case spv::Op::OpTypeReserveId:
       SaveName(result_id, "ReserveId");
       break;
-    case SpvOpTypeQueue:
+    case spv::Op::OpTypeQueue:
       SaveName(result_id, "Queue");
       break;
-    case SpvOpTypeOpaque:
-      SaveName(result_id,
-               std::string("Opaque_") +
-                   Sanitize(reinterpret_cast<const char*>(inst.words + 2)));
+    case spv::Op::OpTypeOpaque:
+      SaveName(result_id, std::string("Opaque_") +
+                              Sanitize(spvDecodeLiteralStringOperand(inst, 1)));
       break;
-    case SpvOpTypePipeStorage:
+    case spv::Op::OpTypePipeStorage:
       SaveName(result_id, "PipeStorage");
       break;
-    case SpvOpTypeNamedBarrier:
+    case spv::Op::OpTypeNamedBarrier:
       SaveName(result_id, "NamedBarrier");
       break;
-    case SpvOpTypeStruct:
+    case spv::Op::OpTypeStruct:
       // Structs are mapped rather simplisitically. Just indicate that they
       // are a struct and then give the raw Id number.
       SaveName(result_id, std::string("_struct_") + to_string(result_id));
       break;
-    case SpvOpConstantTrue:
+    case spv::Op::OpConstantTrue:
       SaveName(result_id, "true");
       break;
-    case SpvOpConstantFalse:
+    case spv::Op::OpConstantFalse:
       SaveName(result_id, "false");
       break;
-    case SpvOpConstant: {
+    case spv::Op::OpConstant: {
       std::ostringstream value;
       EmitNumericLiteral(&value, inst, inst.operands[2]);
       auto value_str = value.str();
@@ -319,11 +336,11 @@ spv_result_t FriendlyNameMapper::ParseInstruction(
 
 std::string FriendlyNameMapper::NameForEnumOperand(spv_operand_type_t type,
                                                    uint32_t word) {
-  spv_operand_desc desc = nullptr;
-  if (SPV_SUCCESS == grammar_.lookupOperand(type, word, &desc)) {
-    return desc->name;
+  const spvtools::OperandDesc* desc = nullptr;
+  if (SPV_SUCCESS == spvtools::LookupOperand(type, word, &desc)) {
+    return desc->name().data();
   } else {
-    // Invalid input.  Just give something sane.
+    // Invalid input.  Just give something.
     return std::string("StorageClass") + to_string(word);
   }
 }

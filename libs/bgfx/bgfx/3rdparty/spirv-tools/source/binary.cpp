@@ -33,6 +33,8 @@
 #include "source/operand.h"
 #include "source/spirv_constant.h"
 #include "source/spirv_endian.h"
+#include "source/table2.h"
+#include "source/util/string_utils.h"
 
 spv_result_t spvBinaryHeaderGet(const spv_const_binary binary,
                                 const spv_endianness_t endian,
@@ -45,6 +47,14 @@ spv_result_t spvBinaryHeaderGet(const spv_const_binary binary,
   // TODO: Validation checking?
   pHeader->magic = spvFixWord(binary->code[SPV_INDEX_MAGIC_NUMBER], endian);
   pHeader->version = spvFixWord(binary->code[SPV_INDEX_VERSION_NUMBER], endian);
+  // Per 2.3.1 version's high and low bytes are 0
+  if ((pHeader->version & 0x000000ff) || pHeader->version & 0xff000000)
+    return SPV_ERROR_INVALID_BINARY;
+  // Minimum version was 1.0 and max version is defined by SPV_VERSION.
+  if (pHeader->version < SPV_SPIRV_VERSION_WORD(1, 0) ||
+      pHeader->version > SPV_VERSION)
+    return SPV_ERROR_INVALID_BINARY;
+
   pHeader->generator =
       spvFixWord(binary->code[SPV_INDEX_GENERATOR_NUMBER], endian);
   pHeader->bound = spvFixWord(binary->code[SPV_INDEX_BOUND], endian);
@@ -52,6 +62,15 @@ spv_result_t spvBinaryHeaderGet(const spv_const_binary binary,
   pHeader->instructions = &binary->code[SPV_INDEX_INSTRUCTION];
 
   return SPV_SUCCESS;
+}
+
+std::string spvDecodeLiteralStringOperand(const spv_parsed_instruction_t& inst,
+                                          const uint16_t operand_index) {
+  assert(operand_index < inst.num_operands);
+  const spv_parsed_operand_t& operand = inst.operands[operand_index];
+
+  return spvtools::utils::MakeString(inst.words + operand.offset,
+                                     operand.num_words);
 }
 
 namespace {
@@ -138,7 +157,7 @@ class Parser {
   // Issues a diagnostic describing an exhaustion of input condition when
   // trying to decode an instruction operand, and returns
   // SPV_ERROR_INVALID_BINARY.
-  spv_result_t exhaustedInputDiagnostic(size_t inst_offset, SpvOp opcode,
+  spv_result_t exhaustedInputDiagnostic(size_t inst_offset, spv::Op opcode,
                                         spv_operand_type_t type) {
     return diagnostic() << "End of input reached while decoding Op"
                         << spvOpcodeString(opcode) << " starting at word "
@@ -171,6 +190,7 @@ class Parser {
   struct NumberType {
     spv_number_kind_t type;
     uint32_t bit_width;
+    spv_fp_encoding_t encoding;
   };
 
   // The state used to parse a single SPIR-V binary module.
@@ -197,7 +217,7 @@ class Parser {
     size_t word_index;           // The current position in words.
     size_t instruction_count;    // The count of processed instructions
     spv_endianness_t endian;     // The endianness of the binary.
-    // Is the SPIR-V binary in a different endiannes from the host native
+    // Is the SPIR-V binary in a different endianness from the host native
     // endianness?
     bool requires_endian_conversion;
 
@@ -282,7 +302,7 @@ spv_result_t Parser::parseInstruction() {
   const uint32_t first_word = peek();
 
   // If the module's endianness is different from the host native endianness,
-  // then converted_words contains the the endian-translated words in the
+  // then converted_words contains the endian-translated words in the
   // instruction.
   _.endian_converted_words.clear();
   _.endian_converted_words.push_back(first_word);
@@ -299,8 +319,8 @@ spv_result_t Parser::parseInstruction() {
     return diagnostic() << "Invalid instruction word count: "
                         << inst_word_count;
   }
-  spv_opcode_desc opcode_desc;
-  if (grammar_.lookupOpcode(static_cast<SpvOp>(inst.opcode), &opcode_desc))
+  const spvtools::InstructionDesc* opcode_desc = nullptr;
+  if (spvtools::LookupOpcode(static_cast<spv::Op>(inst.opcode), &opcode_desc))
     return diagnostic() << "Invalid opcode: " << inst.opcode;
 
   // Advance past the opcode word.  But remember the of the start
@@ -316,16 +336,15 @@ spv_result_t Parser::parseInstruction() {
   // ExecutionMode), or for extended instructions that may have their
   // own operands depending on the selected extended instruction.
   _.expected_operands.clear();
-  for (auto i = 0; i < opcode_desc->numTypes; i++)
-    _.expected_operands.push_back(
-        opcode_desc->operandTypes[opcode_desc->numTypes - i - 1]);
+
+  spvPushOperandTypes(opcode_desc->operands(), &_.expected_operands);
 
   while (_.word_index < inst_offset + inst_word_count) {
     const uint16_t inst_word_index = uint16_t(_.word_index - inst_offset);
     if (_.expected_operands.empty()) {
-      return diagnostic() << "Invalid instruction Op" << opcode_desc->name
-                          << " starting at word " << inst_offset
-                          << ": expected no more operands after "
+      return diagnostic() << "Invalid instruction Op"
+                          << opcode_desc->name().data() << " starting at word "
+                          << inst_offset << ": expected no more operands after "
                           << inst_word_index
                           << " words, but stated word count is "
                           << inst_word_count << ".";
@@ -344,15 +363,15 @@ spv_result_t Parser::parseInstruction() {
   if (!_.expected_operands.empty() &&
       !spvOperandIsOptional(_.expected_operands.back())) {
     return diagnostic() << "End of input reached while decoding Op"
-                        << opcode_desc->name << " starting at word "
+                        << opcode_desc->name().data() << " starting at word "
                         << inst_offset << ": expected more operands after "
                         << inst_word_count << " words.";
   }
 
   if ((inst_offset + inst_word_count) != _.word_index) {
-    return diagnostic() << "Invalid word count: Op" << opcode_desc->name
-                        << " starting at word " << inst_offset
-                        << " says it has " << inst_word_count
+    return diagnostic() << "Invalid word count: Op"
+                        << opcode_desc->name().data() << " starting at word "
+                        << inst_offset << " says it has " << inst_word_count
                         << " words, but found " << _.word_index - inst_offset
                         << " words instead.";
   }
@@ -367,8 +386,6 @@ spv_result_t Parser::parseInstruction() {
   assert(_.requires_endian_conversion ||
          (_.endian_converted_words.size() == 1));
 
-  recordNumberType(inst_offset, &inst);
-
   if (_.requires_endian_conversion) {
     // We must wait until here to set this pointer, because the vector might
     // have been be resized while we accumulated its elements.
@@ -379,6 +396,8 @@ spv_result_t Parser::parseInstruction() {
     inst.words = _.words + inst_offset;
   }
   inst.num_words = inst_word_count;
+
+  recordNumberType(inst_offset, &inst);
 
   // We must wait until here to set this pointer, because the vector might
   // have been be resized while we accumulated its elements.
@@ -400,7 +419,7 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
                                   std::vector<uint32_t>* words,
                                   std::vector<spv_parsed_operand_t>* operands,
                                   spv_operand_pattern_t* expected_operands) {
-  const SpvOp opcode = static_cast<SpvOp>(inst->opcode);
+  const spv::Op opcode = static_cast<spv::Op>(inst->opcode);
   // We'll fill in this result as we go along.
   spv_parsed_operand_t parsed_operand;
   parsed_operand.offset = uint16_t(_.word_index - inst_offset);
@@ -455,7 +474,7 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
       if (!word) return diagnostic(SPV_ERROR_INVALID_ID) << "Id is 0";
       parsed_operand.type = SPV_OPERAND_TYPE_ID;
 
-      if (opcode == SpvOpExtInst && parsed_operand.offset == 3) {
+      if (spvIsExtendedInstruction(opcode) && parsed_operand.offset == 3) {
         // The current word is the extended instruction set Id.
         // Set the extended instruction set type for the current instruction.
         auto ext_inst_type_iter = _.import_id_to_ext_inst_type.find(word);
@@ -476,13 +495,14 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
       break;
 
     case SPV_OPERAND_TYPE_EXTENSION_INSTRUCTION_NUMBER: {
-      assert(SpvOpExtInst == opcode);
+      assert(spvIsExtendedInstruction(opcode));
       assert(inst->ext_inst_type != SPV_EXT_INST_TYPE_NONE);
-      spv_ext_inst_desc ext_inst;
-      if (grammar_.lookupExtInst(inst->ext_inst_type, word, &ext_inst) ==
+
+      const spvtools::ExtInstDesc* desc = nullptr;
+      if (spvtools::LookupExtInst(inst->ext_inst_type, word, &desc) ==
           SPV_SUCCESS) {
         // if we know about this ext inst, push the expected operands
-        spvPushOperandTypes(ext_inst->operandTypes, expected_operands);
+        spvPushOperandTypes(desc->operands(), expected_operands);
       } else {
         // if we don't know this extended instruction and the set isn't
         // non-semantic, we cannot process further
@@ -498,13 +518,14 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
     } break;
 
     case SPV_OPERAND_TYPE_SPEC_CONSTANT_OP_NUMBER: {
-      assert(SpvOpSpecConstantOp == opcode);
-      if (grammar_.lookupSpecConstantOpcode(SpvOp(word))) {
+      assert(spv::Op::OpSpecConstantOp == opcode);
+      if (word > static_cast<uint32_t>(spv::Op::Max) ||
+          grammar_.lookupSpecConstantOpcode(spv::Op(word))) {
         return diagnostic()
                << "Invalid " << spvOperandTypeStr(type) << ": " << word;
       }
-      spv_opcode_desc opcode_entry = nullptr;
-      if (grammar_.lookupOpcode(SpvOp(word), &opcode_entry)) {
+      const spvtools::InstructionDesc* opcode_entry = nullptr;
+      if (spvtools::LookupOpcode(spv::Op(word), &opcode_entry)) {
         return diagnostic(SPV_ERROR_INTERNAL)
                << "OpSpecConstant opcode table out of sync";
       }
@@ -513,8 +534,9 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
       // operants for the opcode.
       assert(opcode_entry->hasType);
       assert(opcode_entry->hasResult);
-      assert(opcode_entry->numTypes >= 2);
-      spvPushOperandTypes(opcode_entry->operandTypes + 2, expected_operands);
+      assert(opcode_entry->operands().size() >= 2);
+      spvPushOperandTypes(opcode_entry->operands().subspan(2),
+                          expected_operands);
     } break;
 
     case SPV_OPERAND_TYPE_LITERAL_INTEGER:
@@ -527,10 +549,17 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
       parsed_operand.number_bit_width = 32;
       break;
 
+    case SPV_OPERAND_TYPE_LITERAL_FLOAT:
+      // These are regular single-word literal float operands.
+      parsed_operand.type = SPV_OPERAND_TYPE_LITERAL_FLOAT;
+      parsed_operand.number_kind = SPV_NUMBER_FLOATING;
+      parsed_operand.number_bit_width = 32;
+      break;
+
     case SPV_OPERAND_TYPE_TYPED_LITERAL_NUMBER:
     case SPV_OPERAND_TYPE_OPTIONAL_TYPED_LITERAL_INTEGER:
       parsed_operand.type = SPV_OPERAND_TYPE_TYPED_LITERAL_NUMBER;
-      if (opcode == SpvOpSwitch) {
+      if (opcode == spv::Op::OpSwitch) {
         // The literal operands have the same type as the value
         // referenced by the selector Id.
         const uint32_t selector_id = peekAt(inst_offset + 1);
@@ -556,7 +585,8 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
                               << " is not a scalar integer";
         }
       } else {
-        assert(opcode == SpvOpConstant || opcode == SpvOpSpecConstant);
+        assert(opcode == spv::Op::OpConstant ||
+               opcode == spv::Op::OpSpecConstant);
         // The literal number type is determined by the type Id for the
         // constant.
         assert(inst->type_id);
@@ -568,27 +598,18 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
 
     case SPV_OPERAND_TYPE_LITERAL_STRING:
     case SPV_OPERAND_TYPE_OPTIONAL_LITERAL_STRING: {
-      convert_operand_endianness = false;
-      const char* string =
-          reinterpret_cast<const char*>(_.words + _.word_index);
-      // Compute the length of the string, but make sure we don't run off the
-      // end of the input.
-      const size_t remaining_input_bytes =
-          sizeof(uint32_t) * (_.num_words - _.word_index);
-      const size_t string_num_content_bytes =
-          spv_strnlen_s(string, remaining_input_bytes);
-      // If there was no terminating null byte, then that's an end-of-input
-      // error.
-      if (string_num_content_bytes == remaining_input_bytes)
+      const size_t max_words = _.num_words - _.word_index;
+      std::string string =
+          spvtools::utils::MakeString(_.words + _.word_index, max_words, false);
+
+      if (string.length() == max_words * 4)
         return exhaustedInputDiagnostic(inst_offset, opcode, type);
-      // Account for null in the word length, so add 1 for null, then add 3 to
-      // make sure we round up.  The following is equivalent to:
-      //    (string_num_content_bytes + 1 + 3) / 4
-      const size_t string_num_words = string_num_content_bytes / 4 + 1;
+
       // Make sure we can record the word count without overflow.
       //
       // This error can't currently be triggered because of validity
       // checks elsewhere.
+      const size_t string_num_words = string.length() / 4 + 1;
       if (string_num_words > std::numeric_limits<uint16_t>::max()) {
         return diagnostic() << "Literal string is longer than "
                             << std::numeric_limits<uint16_t>::max()
@@ -597,12 +618,12 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
       parsed_operand.num_words = uint16_t(string_num_words);
       parsed_operand.type = SPV_OPERAND_TYPE_LITERAL_STRING;
 
-      if (SpvOpExtInstImport == opcode) {
+      if (spv::Op::OpExtInstImport == opcode) {
         // Record the extended instruction type for the ID for this import.
         // There is only one string literal argument to OpExtInstImport,
         // so it's sufficient to guard this just on the opcode.
         const spv_ext_inst_type_t ext_inst_type =
-            spvExtInstImportTypeGet(string);
+            spvExtInstImportTypeGet(string.c_str());
         if (SPV_EXT_INST_TYPE_NONE == ext_inst_type) {
           return diagnostic()
                  << "Invalid extended instruction import '" << string << "'";
@@ -615,7 +636,6 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
     } break;
 
     case SPV_OPERAND_TYPE_CAPABILITY:
-    case SPV_OPERAND_TYPE_SOURCE_LANGUAGE:
     case SPV_OPERAND_TYPE_EXECUTION_MODEL:
     case SPV_OPERAND_TYPE_ADDRESSING_MODEL:
     case SPV_OPERAND_TYPE_MEMORY_MODEL:
@@ -647,21 +667,52 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
     case SPV_OPERAND_TYPE_CLDEBUG100_DEBUG_COMPOSITE_TYPE:
     case SPV_OPERAND_TYPE_CLDEBUG100_DEBUG_TYPE_QUALIFIER:
     case SPV_OPERAND_TYPE_CLDEBUG100_DEBUG_OPERATION:
-    case SPV_OPERAND_TYPE_CLDEBUG100_DEBUG_IMPORTED_ENTITY: {
+    case SPV_OPERAND_TYPE_CLDEBUG100_DEBUG_IMPORTED_ENTITY:
+    case SPV_OPERAND_TYPE_FPDENORM_MODE:
+    case SPV_OPERAND_TYPE_FPOPERATION_MODE:
+    case SPV_OPERAND_TYPE_QUANTIZATION_MODES:
+    case SPV_OPERAND_TYPE_OVERFLOW_MODES:
+    case SPV_OPERAND_TYPE_PACKED_VECTOR_FORMAT:
+    case SPV_OPERAND_TYPE_OPTIONAL_PACKED_VECTOR_FORMAT:
+    case SPV_OPERAND_TYPE_FPENCODING:
+    case SPV_OPERAND_TYPE_OPTIONAL_FPENCODING:
+    case SPV_OPERAND_TYPE_HOST_ACCESS_QUALIFIER:
+    case SPV_OPERAND_TYPE_LOAD_CACHE_CONTROL:
+    case SPV_OPERAND_TYPE_STORE_CACHE_CONTROL:
+    case SPV_OPERAND_TYPE_NAMED_MAXIMUM_NUMBER_OF_REGISTERS: {
       // A single word that is a plain enum value.
 
       // Map an optional operand type to its corresponding concrete type.
       if (type == SPV_OPERAND_TYPE_OPTIONAL_ACCESS_QUALIFIER)
         parsed_operand.type = SPV_OPERAND_TYPE_ACCESS_QUALIFIER;
+      if (type == SPV_OPERAND_TYPE_OPTIONAL_PACKED_VECTOR_FORMAT)
+        parsed_operand.type = SPV_OPERAND_TYPE_PACKED_VECTOR_FORMAT;
+      if (type == SPV_OPERAND_TYPE_OPTIONAL_FPENCODING)
+        parsed_operand.type = SPV_OPERAND_TYPE_FPENCODING;
 
-      spv_operand_desc entry;
-      if (grammar_.lookupOperand(type, word, &entry)) {
+      const spvtools::OperandDesc* entry = nullptr;
+      if (spvtools::LookupOperand(type, word, &entry)) {
         return diagnostic()
                << "Invalid " << spvOperandTypeStr(parsed_operand.type)
                << " operand: " << word;
       }
       // Prepare to accept operands to this operand, if needed.
-      spvPushOperandTypes(entry->operandTypes, expected_operands);
+      spvPushOperandTypes(entry->operands(), expected_operands);
+    } break;
+
+    case SPV_OPERAND_TYPE_SOURCE_LANGUAGE: {
+      const spvtools::OperandDesc* entry = nullptr;
+      if (spvtools::LookupOperand(type, word, &entry)) {
+        return diagnostic()
+               << "Invalid " << spvOperandTypeStr(parsed_operand.type)
+               << " operand: " << word
+               << ", if you are creating a new source language please use "
+                  "value 0 "
+                  "(Unknown) and when ready, add your source language to "
+                  "SPIRV-Headers";
+      }
+      // Prepare to accept operands to this operand, if needed.
+      spvPushOperandTypes(entry->operands(), expected_operands);
     } break;
 
     case SPV_OPERAND_TYPE_FP_FAST_MATH_MODE:
@@ -669,17 +720,36 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
     case SPV_OPERAND_TYPE_LOOP_CONTROL:
     case SPV_OPERAND_TYPE_IMAGE:
     case SPV_OPERAND_TYPE_OPTIONAL_IMAGE:
+    case SPV_OPERAND_TYPE_MEMORY_ACCESS:
+    case SPV_OPERAND_TYPE_TENSOR_OPERANDS:
+    case SPV_OPERAND_TYPE_OPTIONAL_TENSOR_OPERANDS:
     case SPV_OPERAND_TYPE_OPTIONAL_MEMORY_ACCESS:
+    case SPV_OPERAND_TYPE_OPTIONAL_RAW_ACCESS_CHAIN_OPERANDS:
     case SPV_OPERAND_TYPE_SELECTION_CONTROL:
     case SPV_OPERAND_TYPE_CLDEBUG100_DEBUG_INFO_FLAGS:
-    case SPV_OPERAND_TYPE_DEBUG_INFO_FLAGS: {
+    case SPV_OPERAND_TYPE_DEBUG_INFO_FLAGS:
+    case SPV_OPERAND_TYPE_COOPERATIVE_MATRIX_OPERANDS:
+    case SPV_OPERAND_TYPE_OPTIONAL_COOPERATIVE_MATRIX_OPERANDS:
+    case SPV_OPERAND_TYPE_COOPERATIVE_MATRIX_REDUCE:
+    case SPV_OPERAND_TYPE_TENSOR_ADDRESSING_OPERANDS:
+    case SPV_OPERAND_TYPE_MATRIX_MULTIPLY_ACCUMULATE_OPERANDS:
+    case SPV_OPERAND_TYPE_OPTIONAL_MATRIX_MULTIPLY_ACCUMULATE_OPERANDS: {
       // This operand is a mask.
 
       // Map an optional operand type to its corresponding concrete type.
       if (type == SPV_OPERAND_TYPE_OPTIONAL_IMAGE)
         parsed_operand.type = SPV_OPERAND_TYPE_IMAGE;
-      else if (type == SPV_OPERAND_TYPE_OPTIONAL_MEMORY_ACCESS)
+      if (type == SPV_OPERAND_TYPE_OPTIONAL_MEMORY_ACCESS)
         parsed_operand.type = SPV_OPERAND_TYPE_MEMORY_ACCESS;
+      if (type == SPV_OPERAND_TYPE_OPTIONAL_COOPERATIVE_MATRIX_OPERANDS)
+        parsed_operand.type = SPV_OPERAND_TYPE_COOPERATIVE_MATRIX_OPERANDS;
+      if (type == SPV_OPERAND_TYPE_OPTIONAL_RAW_ACCESS_CHAIN_OPERANDS)
+        parsed_operand.type = SPV_OPERAND_TYPE_RAW_ACCESS_CHAIN_OPERANDS;
+      if (type == SPV_OPERAND_TYPE_OPTIONAL_MATRIX_MULTIPLY_ACCUMULATE_OPERANDS)
+        parsed_operand.type =
+            SPV_OPERAND_TYPE_MATRIX_MULTIPLY_ACCUMULATE_OPERANDS;
+      if (type == SPV_OPERAND_TYPE_OPTIONAL_TENSOR_OPERANDS)
+        parsed_operand.type = SPV_OPERAND_TYPE_TENSOR_OPERANDS;
 
       // Check validity of set mask bits. Also prepare for operands for those
       // masks if they have any.  To get operand order correct, scan from
@@ -690,23 +760,23 @@ spv_result_t Parser::parseOperand(size_t inst_offset,
       uint32_t remaining_word = word;
       for (uint32_t mask = (1u << 31); remaining_word; mask >>= 1) {
         if (remaining_word & mask) {
-          spv_operand_desc entry;
-          if (grammar_.lookupOperand(type, mask, &entry)) {
+          const spvtools::OperandDesc* entry = nullptr;
+          if (spvtools::LookupOperand(type, mask, &entry)) {
             return diagnostic()
                    << "Invalid " << spvOperandTypeStr(parsed_operand.type)
                    << " operand: " << word << " has invalid mask component "
                    << mask;
           }
           remaining_word ^= mask;
-          spvPushOperandTypes(entry->operandTypes, expected_operands);
+          spvPushOperandTypes(entry->operands(), expected_operands);
         }
       }
       if (word == 0) {
         // An all-zeroes mask *might* also be valid.
-        spv_operand_desc entry;
-        if (SPV_SUCCESS == grammar_.lookupOperand(type, 0, &entry)) {
+        const spvtools::OperandDesc* entry = nullptr;
+        if (SPV_SUCCESS == spvtools::LookupOperand(type, 0, &entry)) {
           // Prepare for its operands, if any.
-          spvPushOperandTypes(entry->operandTypes, expected_operands);
+          spvPushOperandTypes(entry->operands(), expected_operands);
         }
       }
     } break;
@@ -764,6 +834,7 @@ spv_result_t Parser::setNumericTypeInfoForType(
 
   parsed_operand->number_kind = info.type;
   parsed_operand->number_bit_width = info.bit_width;
+  parsed_operand->fp_encoding = info.encoding;
   // Round up the word count.
   parsed_operand->num_words = static_cast<uint16_t>((info.bit_width + 31) / 32);
   return SPV_SUCCESS;
@@ -771,16 +842,27 @@ spv_result_t Parser::setNumericTypeInfoForType(
 
 void Parser::recordNumberType(size_t inst_offset,
                               const spv_parsed_instruction_t* inst) {
-  const SpvOp opcode = static_cast<SpvOp>(inst->opcode);
+  const spv::Op opcode = static_cast<spv::Op>(inst->opcode);
   if (spvOpcodeGeneratesType(opcode)) {
     NumberType info = {SPV_NUMBER_NONE, 0};
-    if (SpvOpTypeInt == opcode) {
+    if (spv::Op::OpTypeInt == opcode) {
       const bool is_signed = peekAt(inst_offset + 3) != 0;
       info.type = is_signed ? SPV_NUMBER_SIGNED_INT : SPV_NUMBER_UNSIGNED_INT;
       info.bit_width = peekAt(inst_offset + 2);
-    } else if (SpvOpTypeFloat == opcode) {
+    } else if (spv::Op::OpTypeFloat == opcode) {
       info.type = SPV_NUMBER_FLOATING;
       info.bit_width = peekAt(inst_offset + 2);
+      if (inst->num_words >= 4) {
+        const spvtools::OperandDesc* desc;
+        spv_result_t status = spvtools::LookupOperand(
+            SPV_OPERAND_TYPE_FPENCODING, peekAt(inst_offset + 3), &desc);
+        if (status == SPV_SUCCESS) {
+          info.encoding = spvFPEncodingFromOperandFPEncoding(
+              static_cast<spv::FPEncoding>(desc->value));
+        } else {
+          info.encoding = SPV_FP_ENCODING_UNKNOWN;
+        }
+      }
     }
     // The *result* Id of a type generating instruction is the type Id.
     _.type_id_to_number_type_info[inst->result_id] = info;

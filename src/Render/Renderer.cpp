@@ -2,6 +2,8 @@
 #include <iostream>
 #include <GLFW/glfw3.h>
 
+#include "bgfx/platform.h"
+
 #if defined(_WIN32)
     #define GLFW_EXPOSE_NATIVE_WIN32
     #include <GLFW/glfw3native.h>
@@ -30,10 +32,12 @@ bool Renderer::Init(GLFWwindow *window, bgfx::RendererType::Enum render_type) {
     pd.nwh = glfwGetWin32Window(window);
 #elif defined(__linux__)
     pd.nwh = (void*)glfwGetX11Window(window);
-    pd.ndt = glfwGetX11Display(); // required for X11 backend
+    auto display = glfwGetX11Display(); // required for X11 backend
+    if (!display)
+        std::cerr << "Couldn't get a valid display from glfwGetX11Display() !\n";
+    pd.ndt = display;
 #endif
 
-    pd.ndt          = nullptr;
     pd.context      = nullptr;
     pd.backBuffer   = nullptr;
     pd.backBufferDS = nullptr;

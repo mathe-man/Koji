@@ -17,8 +17,10 @@
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -38,6 +40,7 @@ class Function {
  public:
   using iterator = UptrVectorIterator<BasicBlock>;
   using const_iterator = UptrVectorIterator<BasicBlock, true>;
+  using ParamList = std::vector<std::unique_ptr<Instruction>>;
 
   // Creates a function instance declared by the given OpFunction instruction
   // |def_inst|.
@@ -76,8 +79,30 @@ class Function {
   // Does nothing if the function doesn't have such a parameter.
   inline void RemoveParameter(uint32_t id);
 
+  // Rewrites the function parameters by calling a replacer callback.
+  // The replacer takes two parameters: an expiring unique pointer to a current
+  // instruction, and a back-inserter into a new list of unique pointers to
+  // instructions.  The replacer is called for each current parameter, in order.
+  // Not valid to call while also iterating through the parameter list, e.g.
+  // within the ForEachParam method.
+  using RewriteParamFn = std::function<void(
+      std::unique_ptr<Instruction>&&, std::back_insert_iterator<ParamList>&)>;
+  void RewriteParams(RewriteParamFn& replacer) {
+    ParamList new_params;
+    auto appender = std::back_inserter(new_params);
+    for (auto& param : params_) {
+      replacer(std::move(param), appender);
+    }
+    params_ = std::move(new_params);
+  }
+
   // Saves the given function end instruction.
   inline void SetFunctionEnd(std::unique_ptr<Instruction> end_inst);
+
+  // Add a non-semantic instruction that succeeds this function in the module.
+  // These instructions are maintained in the order they are added.
+  inline void AddNonSemanticInstruction(
+      std::unique_ptr<Instruction> non_semantic);
 
   // Returns the given function end instruction.
   inline Instruction* EndInst() { return end_inst_.get(); }
@@ -88,6 +113,9 @@ class Function {
 
   // Returns function's return type id
   inline uint32_t type_id() const { return def_inst_->type_id(); }
+
+  // Returns the function's control mask
+  inline uint32_t control_mask() const { return def_inst_->GetSingleWordInOperand(0); }
 
   // Returns the entry basic block for this function.
   const std::unique_ptr<BasicBlock>& entry() const { return blocks_.front(); }
@@ -115,19 +143,24 @@ class Function {
   }
 
   // Runs the given function |f| on instructions in this function, in order,
-  // and optionally on debug line instructions that might precede them.
+  // and optionally on debug line instructions that might precede them and
+  // non-semantic instructions that succceed the function.
   void ForEachInst(const std::function<void(Instruction*)>& f,
-                   bool run_on_debug_line_insts = false);
+                   bool run_on_debug_line_insts = false,
+                   bool run_on_non_semantic_insts = false);
   void ForEachInst(const std::function<void(const Instruction*)>& f,
-                   bool run_on_debug_line_insts = false) const;
+                   bool run_on_debug_line_insts = false,
+                   bool run_on_non_semantic_insts = false) const;
   // Runs the given function |f| on instructions in this function, in order,
-  // and optionally on debug line instructions that might precede them.
-  // If |f| returns false, iteration is terminated and this function returns
-  // false.
+  // and optionally on debug line instructions that might precede them and
+  // non-semantic instructions that succeed the function.  If |f| returns
+  // false, iteration is terminated and this function returns false.
   bool WhileEachInst(const std::function<bool(Instruction*)>& f,
-                     bool run_on_debug_line_insts = false);
+                     bool run_on_debug_line_insts = false,
+                     bool run_on_non_semantic_insts = false);
   bool WhileEachInst(const std::function<bool(const Instruction*)>& f,
-                     bool run_on_debug_line_insts = false) const;
+                     bool run_on_debug_line_insts = false,
+                     bool run_on_non_semantic_insts = false) const;
 
   // Runs the given function |f| on each parameter instruction in this function,
   // in order, and optionally on debug line instructions that might precede
@@ -148,7 +181,10 @@ class Function {
   BasicBlock* InsertBasicBlockBefore(std::unique_ptr<BasicBlock>&& new_block,
                                      BasicBlock* position);
 
-  // Return true if the function calls itself either directly or indirectly.
+  // Returns true if the function has a return block other than the exit block.
+  bool HasEarlyReturn() const;
+
+  // Returns true if the function calls itself either directly or indirectly.
   bool IsRecursive() const;
 
   // Pretty-prints all the basic blocks in this function into a std::string.
@@ -161,17 +197,34 @@ class Function {
   // debuggers.
   void Dump() const;
 
+  // Returns true is a function declaration and not a function definition.
+  bool IsDeclaration() { return begin() == end(); }
+
+  // Reorders the basic blocks in the function to match the structured order.
+  void ReorderBasicBlocksInStructuredOrder();
+
  private:
+  // Reorders the basic blocks in the function to match the order given by the
+  // range |{begin,end}|.  The range must contain every basic block in the
+  // function, and no extras.
+  template <class It>
+  void ReorderBasicBlocks(It begin, It end);
+
+  template <class It>
+  bool ContainsAllBlocksInTheFunction(It begin, It end);
+
   // The OpFunction instruction that begins the definition of this function.
   std::unique_ptr<Instruction> def_inst_;
   // All parameters to this function.
-  std::vector<std::unique_ptr<Instruction>> params_;
+  ParamList params_;
   // All debug instructions in this function's header.
   InstructionList debug_insts_in_header_;
   // All basic blocks inside this function in specification order
   std::vector<std::unique_ptr<BasicBlock>> blocks_;
   // The OpFunctionEnd instruction.
   std::unique_ptr<Instruction> end_inst_;
+  // Non-semantic instructions succeeded by this function.
+  std::vector<std::unique_ptr<Instruction>> non_semantic_;
 };
 
 // Pretty-prints |func| to |str|. Returns |str|.
@@ -195,6 +248,7 @@ inline void Function::AddBasicBlock(std::unique_ptr<BasicBlock> b) {
 
 inline void Function::AddBasicBlock(std::unique_ptr<BasicBlock> b,
                                     iterator ip) {
+  b->SetParent(this);
   ip.InsertBefore(std::move(b));
 }
 
@@ -218,7 +272,7 @@ inline void Function::RemoveEmptyBlocks() {
   auto first_empty =
       std::remove_if(std::begin(blocks_), std::end(blocks_),
                      [](const std::unique_ptr<BasicBlock>& bb) -> bool {
-                       return bb->GetLabelInst()->opcode() == SpvOpNop;
+                       return bb->GetLabelInst()->opcode() == spv::Op::OpNop;
                      });
   blocks_.erase(first_empty, std::end(blocks_));
 }
@@ -233,6 +287,39 @@ inline void Function::RemoveParameter(uint32_t id) {
 
 inline void Function::SetFunctionEnd(std::unique_ptr<Instruction> end_inst) {
   end_inst_ = std::move(end_inst);
+}
+
+inline void Function::AddNonSemanticInstruction(
+    std::unique_ptr<Instruction> non_semantic) {
+  non_semantic_.emplace_back(std::move(non_semantic));
+}
+
+template <class It>
+void Function::ReorderBasicBlocks(It begin, It end) {
+  // Asserts to make sure every node in the function is in new_order.
+  assert(ContainsAllBlocksInTheFunction(begin, end));
+
+  // We have a pointer to all the elements in order, so we can release all
+  // pointers in |block_|, and then create the new unique pointers from |{begin,
+  // end}|.
+  std::for_each(blocks_.begin(), blocks_.end(),
+                [](std::unique_ptr<BasicBlock>& bb) { bb.release(); });
+  std::transform(begin, end, blocks_.begin(), [](BasicBlock* bb) {
+    return std::unique_ptr<BasicBlock>(bb);
+  });
+}
+
+template <class It>
+bool Function::ContainsAllBlocksInTheFunction(It begin, It end) {
+  std::unordered_multiset<BasicBlock*> range(begin, end);
+  if (range.size() != blocks_.size()) {
+    return false;
+  }
+
+  for (auto& bb : blocks_) {
+    if (range.count(bb.get()) == 0) return false;
+  }
+  return true;
 }
 
 }  // namespace opt
