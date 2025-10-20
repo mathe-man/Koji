@@ -1,14 +1,14 @@
-$input a_position, a_color0    // Input vars
-$output v_color0               // Output to the fragment shader
+$input a_position, a_color0
+$output v_color0
 
-#include "common.sh"            // Contain bgfx uniform definitions (e.g. u_modelViewProj)
+#include <bgfx_shader.sh>
 
 void main()
 {
-    // Transform vertex position using the model-view-projection matrix
-    gl_Position = mul(u_modelViewProj, vec(a_position, 1.0));
- 
-    // Pass the vertex color to the fragment shader    
+    // Multiply the model matrix (set via bgfx::setTransform) with view-projection
+    gl_Position = mul(u_model[0], vec4(a_position, 1.0));
+
+    // Pass vertex color to fragment shader
     v_color0 = a_color0;
 }
 
