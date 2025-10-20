@@ -1,4 +1,3 @@
-#include <bgfx/bgfx.h>
 #include <iostream>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -22,7 +21,7 @@ int main(){
         std::cout << "Scope timer ended after " << seconds << "s\n";
     });
 
-    auto app = Application("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT, bgfx::RendererType::OpenGL);
+    auto app = Application("Hello World", WINDOW_WIDTH, WINDOW_HEIGHT);
 
     DelayTimer timer(2500, [] {
         std::cout << "Delay timer finished\n";
