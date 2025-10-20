@@ -1,11 +1,13 @@
 #pragma once
 #include <glm/glm.hpp>
 
+#include "raylib.h"
+
 namespace Koji {
 
 struct Velocity {
-    glm::vec3 LinearVelocity;
-    glm::quat AngularVelocity;
+    Vector3 LinearVelocity;
+    Vector4 AngularVelocity;
 };
 
 } // Koji

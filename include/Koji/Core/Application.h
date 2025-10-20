@@ -1,18 +1,17 @@
 #pragma once
-#include <bgfx/bgfx.h>
+#include <cstdint>
 
 namespace Koji {
 
     class Application {
     public:
-        Application(const char* name, uint16_t window_width, uint16_t window_height, bgfx::RendererType::Enum render_type = bgfx::RendererType::Count);
+        Application(const char* name, uint16_t window_width, uint16_t window_height);
         bool Run() const;
         ~Application();
     private:
         char *name;
         uint16_t window_width;
         uint16_t window_height;
-        bgfx::RendererType::Enum render_type;
     };
 
 } // Koji

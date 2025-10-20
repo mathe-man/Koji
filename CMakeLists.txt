@@ -8,17 +8,8 @@ set(KOJI_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(KOJI_RESOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 
 
-# glfw build settings
-set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "Disable Wayland backend")
-set(GLFW_BUILD_X11 ON CACHE BOOL "Enable X11 backend")
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Don't build GLFW examples")
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "Don't build GLFW tests")
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "Don't build GLFW docs")
-
-add_subdirectory(libs/glfw)
-add_subdirectory(libs/glm)
+add_subdirectory(libs/raylib)
 add_subdirectory(libs/entt)
-add_subdirectory(libs/bgfx)
 add_subdirectory(libs/reactphysics3d)
 
 
@@ -43,8 +34,6 @@ target_include_directories(Koji PUBLIC
 )
 target_include_directories(Koji PRIVATE
         libs/entt/src
-        libs/bgfx/bgfx/include
-        libs/glfw/include
-        libs/glm
+        libs/raylib/src
 )
-target_link_libraries(Koji PRIVATE glfw bgfx bx)
+target_link_libraries(Koji PRIVATE raylib)
