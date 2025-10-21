@@ -3,6 +3,9 @@
 #include "Koji/ECS/Components/Components.hpp"
 #include <raylib.h>
 
+#include "imgui.h"
+#include "imgui_impl_raylib.h"
+
 using namespace Koji::Components;
 using namespace Koji::Systems;
 using namespace Koji::Core;
@@ -24,8 +27,8 @@ RenderingSystem::RenderingSystem(const ApplicationData& data) : System(data)
     camera.fovy     = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    // ImGui::CreateContext();
-    // ImGui_ImplRaylib_Init();
+    ImGui::CreateContext();
+    ImGui_ImplRaylib_Init();
 }
 
 
@@ -35,9 +38,10 @@ bool RenderingSystem::BeginFrame(entt::registry &registry)
     ClearBackground(RAYWHITE);
     BeginMode3D(camera);
 
-    // TODO add imgui and call those methods
-    // ImGui_ImplRaylib_NewFrame();
-    // ImGui::NewFrame();
+    
+    ImGui_ImplRaylib_NewFrame();
+    ImGui::NewFrame();
+    ImGui::ShowDemoWindow();
 
     auto view = registry.view<kTransform, Mesh, Material>();
     for (auto entity : view) {
@@ -55,8 +59,8 @@ bool RenderingSystem::BeginFrame(entt::registry &registry)
 
 bool RenderingSystem::EndFrame(entt::registry &registry)
 {
-    // ImGui::Render();
-    //     ImGui_ImplRaylib_RenderDrawData(ImGui::GetDrawData());
+    ImGui::Render();
+    ImGui_ImplRaylib_RenderDrawData(ImGui::GetDrawData());
 
     EndMode3D();
     EndDrawing();

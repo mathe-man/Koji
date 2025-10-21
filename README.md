@@ -16,7 +16,8 @@ A 3d game engine using an ECS
 g
  - **UI**
    - [ImGui](https://github.com/ocornut/imgui): For debug and tools (not games GUI). Implementation can be foun [here](https://github.com/bkaradzic/bgfx/tree/master/examples/common/imgui)
-  
+   - [rlImGui](https://github.com/raylib-extras/rlImGui): The lib to use ImGui with Raylib  
+
  - **Later**
    - *Scripting*: Lua (using sol2)
    - *Audio*: OpenAL or other
