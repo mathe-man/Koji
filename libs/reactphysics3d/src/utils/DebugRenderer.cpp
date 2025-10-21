@@ -45,12 +45,12 @@ DebugRenderer::DebugRenderer(MemoryAllocator& allocator)
                mContactPointSphereRadius(DEFAULT_CONTACT_POINT_SPHERE_RADIUS), mContactNormalLength(DEFAULT_CONTACT_NORMAL_LENGTH),
                mCollisionShapeNormalLength(DEFAULT_COLLISION_SHAPE_NORMAL_LENGTH) {
 
-    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::COLLIDER_AABB, static_cast<uint32>(DebugColor::MAGENTA)));
-    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::COLLIDER_BROADPHASE_AABB, static_cast<uint32>(DebugColor::YELLOW)));
-	mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::COLLISION_SHAPE, static_cast<uint32>(DebugColor::GREEN)));
-    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::CONTACT_POINT, static_cast<uint32>(DebugColor::RED)));
-    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::CONTACT_NORMAL, static_cast<uint32>(DebugColor::WHITE)));
-    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::COLLISION_SHAPE_NORMAL, static_cast<uint32>(DebugColor::BLUE)));
+    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::COLLIDER_AABB, static_cast<uint32>(DebugColor::RP3D_MAGENTA)));
+    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::COLLIDER_BROADPHASE_AABB, static_cast<uint32>(DebugColor::RP3D_YELLOW)));
+	mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::COLLISION_SHAPE, static_cast<uint32>(DebugColor::RP3D_GREEN)));
+    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::CONTACT_POINT, static_cast<uint32>(DebugColor::RP3D_RED)));
+    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::CONTACT_NORMAL, static_cast<uint32>(DebugColor::RP3D_WHITE)));
+    mMapDebugItemWithColor.add(Pair<DebugItem, uint32>(DebugItem::COLLISION_SHAPE_NORMAL, static_cast<uint32>(DebugColor::RP3D_BLUE)));
 }
 
 // Destructor

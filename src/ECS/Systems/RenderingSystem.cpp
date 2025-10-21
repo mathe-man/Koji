@@ -1,6 +1,12 @@
-#include "RenderingSystem.hpp"
-#include "raylib.h"
+#include "Koji//ECS/Systems/Systems.hpp"
+#include "Koji/ECS/Components/Components.hpp"
+#include <raylib.h>
+
+using namespace Koji::Components;
 using namespace Koji::Systems;
+
+System::System()
+{ }
 
 
 RenderingSystem::RenderingSystem(uint16_t width, uint16_t height, const char* title)
@@ -13,7 +19,7 @@ RenderingSystem::RenderingSystem(uint16_t width, uint16_t height, const char* ti
 
     camera.position = { 0.0f, 10.0f, 10.0f };
     camera.target   = { 0.0f ,0.0f ,0.0f };
-    camera.up       = { 0.0f, 1.0f, 0.Of };
+    camera.up       = { 0.0f, 1.0f, 0.0f };
     camera.fovy     = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
@@ -22,7 +28,7 @@ RenderingSystem::RenderingSystem(uint16_t width, uint16_t height, const char* ti
 }
 
 
-bool RenderingSystem::BeginFrame(entt::registry registry)
+bool RenderingSystem::BeginFrame(entt::registry &registry)
 {
     BeginDrawing();
     ClearBackground(RAYWHITE);
@@ -32,25 +38,29 @@ bool RenderingSystem::BeginFrame(entt::registry registry)
     // ImGui_ImplRaylib_NewFrame();
     // ImGui::NewFrame();
 
-    auto view = registry.view<Transform, Mesh, Material>();
+    auto view = registry.view<kTransform, Mesh, Material>();
     for (auto entity : view) {
-        auto& trans = view.get<Transform>(entity);
+        auto& trans = view.get<kTransform>(entity);
         auto& mesh = view.get<Mesh>(entity);
         auto& mat = view.get<Material>(entity);
 
-        DrawMesh(mesh, trans, mat);
+        //DrawMesh(mesh, trans, mat);
     }
+    
+    return true;
 }
 
 
 
-bool RenderingSystem::EndFrame(entt::registry registry)
+bool RenderingSystem::EndFrame(entt::registry &registry)
 {
     // ImGui::Render();
     //     ImGui_ImplRaylib_RenderDrawData(ImGui::GetDrawData());
 
     EndMode3D();
     EndDrawing();
+
+    return true;
 }
 
 

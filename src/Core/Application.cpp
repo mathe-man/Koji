@@ -1,9 +1,10 @@
 #include <cstring>
+#include <raylib.h>
 #include <Koji/Core/Application.h>
-#include "entt/entt.hpp"
-#include "Koji/ECS/Components/Transform.h"
-#include <iostream>
+#include <Koji/ECS//Systems/Systems.hpp>
+
 using Koji::Application;
+using Koji::Systems::RenderingSystem;
 
 
 Application::Application(const char* name, const uint16_t window_width, const uint16_t window_height) {
@@ -15,29 +16,22 @@ Application::Application(const char* name, const uint16_t window_width, const ui
 }
 
 bool Application::Run() const {
-    // Init raylib
-    InitWindow(window_width, window_height, name);
-
     // ECS
-    entt::registry registry;
+    entt::registry reg;
 
-
+    auto rendering_system = RenderingSystem(window_width, window_height, name);
+    
     
 
     // Loop
     while (!WindowShouldClose()) {
         // Update ECS / input if neededd
         
-
-        // TODO in renderer
-        // BeginDrawing();
-        // ClearBackground(RAYWHITE);
+        rendering_system.BeginFrame(reg);
         
-        // BeginMode3D();
-        // EndMode3D();
+        rendering_system.Frame(reg);
 
-        // EndDrawing();
-        
+        rendering_system.EndFrame(reg);
     }
 
     // Shutdown
