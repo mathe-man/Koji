@@ -35,5 +35,6 @@ target_include_directories(Koji PUBLIC
 target_include_directories(Koji PRIVATE
         libs/entt/src
         libs/raylib/src
+        libs/reactphysics3d/include
 )
-target_link_libraries(Koji PRIVATE raylib)
+target_link_libraries(Koji PRIVATE raylib reactphysics3d)

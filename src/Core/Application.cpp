@@ -1,51 +1,49 @@
 #include <cstring>
+#include <raylib.h>
 #include <Koji/Core/Application.h>
-#include "entt/entt.hpp"
-#include "Koji/ECS/Components/Transform.h"
-#include <iostream>
-using Koji::Application;
+#include <Koji/ECS//Systems/Systems.hpp>
 
+using namespace Koji::Core;
+using Koji::Systems::RenderingSystem;
 
-Application::Application(const char* name, const uint16_t window_width, const uint16_t window_height) {
-    this->name = new char[strlen(name) + 1]();
-    strcpy(this->name, name);
+ApplicationData Application::data;
 
-    this->window_width = window_width;
-    this->window_height = window_height;
+bool Application::Init(ApplicationData d)
+{
+    data = std::move(d);
+    return true;
 }
 
-bool Application::Run() const {
-    // Init raylib
-    InitWindow(window_width, window_height, name);
 
+bool Application::Run(bool exit) {
     // ECS
-    entt::registry registry;
+    entt::registry reg = std::move(data.start_registry);
 
-
+    auto rendering_system = RenderingSystem(std::move(data));
+    
     
 
     // Loop
     while (!WindowShouldClose()) {
         // Update ECS / input if neededd
         
-
-        // TODO in renderer
-        // BeginDrawing();
-        // ClearBackground(RAYWHITE);
+        rendering_system.BeginFrame(reg);
         
-        // BeginMode3D();
-        // EndMode3D();
+        rendering_system.Frame(reg);
 
-        // EndDrawing();
-        
+        rendering_system.EndFrame(reg);
     }
 
     // Shutdown
     CloseWindow();
+
+    if (exit)
+        Exit();
+    
     return true;
 }
 
-Application::~Application() {
-    free(this->name);
+void Application::Exit()
+{
 }
 

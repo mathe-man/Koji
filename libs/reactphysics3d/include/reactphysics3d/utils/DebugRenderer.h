@@ -59,14 +59,15 @@ class DebugRenderer : public EventListener {
 		/// Enumeration with basic colors
 		enum class DebugColor {
 
-            RED = 0xff0000,
-            GREEN = 0x00ff00,
-            BLUE = 0x0000ff,
-            BLACK = 0x000000,
-            WHITE = 0xffffff,
-            YELLOW = 0xffff00,
-            MAGENTA = 0xff00ff,
-            CYAN = 0x00ffff,
+			// Renamed those color to avoid conflict with raylib's color palette
+            RP3D_RED = 0xff0000,
+            RP3D_GREEN = 0x00ff00,
+            RP3D_BLUE = 0x0000ff,
+            RP3D_BLACK = 0x000000,
+            RP3D_WHITE = 0xffffff,
+            RP3D_YELLOW = 0xffff00,
+            RP3D_MAGENTA = 0xff00ff,
+            RP3D_CYAN = 0x00ffff,
 		};
 
 		/// Enumeration with debug item to renderer

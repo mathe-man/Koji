@@ -5,9 +5,7 @@ This file is here to list the different libraries and other information about th
 
 
 | Name                             | Version | Last update time in this folder | Link to version                                                                          |
-|----------------------------------|-------|---------------------------------|------------------------------------------------------------------------------------------|
-| [bgfx (cmake)](bgfx)             | v1.129.8940-496  | October 17, 2025                | [Archive](https://github.com/bkaradzic/bgfx.cmake/releases/tag/v1.129.8940-496)                                         |
-| [glfw](glfw)                     | 3.4   | October 15, 2025                | [release 3.4](https://github.com/glfw/glfw/releases/tag/3.4)                             |
-| [glm](glm)                       | 1.0.2 | October 15, 2025                | [release 1.0.2](https://github.com/g-truc/glm/releases/tag/1.0.2)                        |
+|----------------------------------|---------|---------------------------------|------------------------------------------------------------------------------------------|
+| [Raylib](raylib)                 | Commit 8604085 | October 20, 2025                | [Commit 8604085](https://github.com/raysan5/raylib/commit/8604085b6ea6e6fb2345742a8a45c43534333267)                                     |
 | [EnTT](entt)                     | v3.15.0 | October 15, 2025                | [release v3.15.0](https://github.com/skypjack/entt/releases/tag/v3.15.0)                 |
 | [ReactPhysics3D](reactphysics3D) | v0.10.2 | October 15, 2025                | [release v0.10.2](https://github.com/DanielChappuis/reactphysics3d/releases/tag/v0.10.2) |
