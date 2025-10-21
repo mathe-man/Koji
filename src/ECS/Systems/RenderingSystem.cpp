@@ -1,20 +1,21 @@
+#include <Koji/Core/Application.h>
 #include "Koji//ECS/Systems/Systems.hpp"
 #include "Koji/ECS/Components/Components.hpp"
 #include <raylib.h>
 
 using namespace Koji::Components;
 using namespace Koji::Systems;
+using namespace Koji::Core;
 
-System::System()
+System::System(const ApplicationData& data)
 { }
 
 
-RenderingSystem::RenderingSystem(uint16_t width, uint16_t height, const char* title)
+RenderingSystem::RenderingSystem(const ApplicationData& data) : System(data)
 {
-    this->width = width;
-    this->height = height;
+    
 
-    InitWindow(this->width, this->height, title);
+    InitWindow(data.window_width, data.window_height, data.name);
     SetTargetFPS(60);
 
     camera.position = { 0.0f, 10.0f, 10.0f };

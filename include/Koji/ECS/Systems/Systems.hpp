@@ -11,7 +11,8 @@ namespace Koji::Systems
 class System
 {
     public:
-        System();
+        explicit System(const Core::ApplicationData& data);
+        System() = delete; // Forbiden
         virtual ~System() = default;
         
         virtual bool Frame      (entt::registry &registry)   = 0;
@@ -24,7 +25,7 @@ class System
 class RenderingSystem : public System
 {
     public:
-        RenderingSystem(uint16_t width, uint16_t height, const char* title);
+        RenderingSystem(const Core::ApplicationData& data);
         ~RenderingSystem() override = default;
 
         bool Frame      (entt::registry &registry)   override { return true; }

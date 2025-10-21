@@ -3,23 +3,23 @@
 #include <Koji/Core/Application.h>
 #include <Koji/ECS//Systems/Systems.hpp>
 
-using Koji::Application;
+using namespace Koji::Core;
 using Koji::Systems::RenderingSystem;
 
+ApplicationData Application::data;
 
-Application::Application(const char* name, const uint16_t window_width, const uint16_t window_height) {
-    this->name = new char[strlen(name) + 1]();
-    strcpy(this->name, name);
-
-    this->window_width = window_width;
-    this->window_height = window_height;
+bool Application::Init(ApplicationData d)
+{
+    data = std::move(d);
+    return true;
 }
 
-bool Application::Run() const {
-    // ECS
-    entt::registry reg;
 
-    auto rendering_system = RenderingSystem(window_width, window_height, name);
+bool Application::Run(bool exit) {
+    // ECS
+    entt::registry reg = std::move(data.start_registry);
+
+    auto rendering_system = RenderingSystem(std::move(data));
     
     
 
@@ -36,10 +36,14 @@ bool Application::Run() const {
 
     // Shutdown
     CloseWindow();
+
+    if (exit)
+        Exit();
+    
     return true;
 }
 
-Application::~Application() {
-    free(this->name);
+void Application::Exit()
+{
 }
 

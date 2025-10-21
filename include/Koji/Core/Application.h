@@ -1,17 +1,25 @@
 #pragma once
 #include <cstdint>
 
-namespace Koji {
+#include "entt/entity/registry.hpp"
+
+namespace Koji::Core {
+
+    struct ApplicationData
+    {
+        const char* name;
+        uint16_t window_width;
+        uint16_t window_height;
+        entt::registry start_registry;
+    };
 
     class Application {
     public:
-        Application(const char* name, uint16_t window_width, uint16_t window_height);
-        bool Run() const;
-        ~Application();
-    private:
-        char *name;
-        uint16_t window_width;
-        uint16_t window_height;
+        static bool Init(ApplicationData d);
+        static bool Run(bool exit_at_end = true);
+        static void Exit();
+
+        static ApplicationData data;
     };
 
 } // Koji
