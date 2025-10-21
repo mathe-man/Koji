@@ -17,27 +17,6 @@ using namespace Koji;
 #endif
 
 int main(){
-    ScopeTimer t = ScopeTimer([](double seconds) {
-        std::cout << "Scope timer ended after " << seconds << "s\n";
-    });
-
-    Core::Application::Init (
-        Core::ApplicationData {
-            "Koji Game Engine",
-            WINDOW_WIDTH, WINDOW_HEIGHT,
-            entt::registry()
-        }
-    );
-
-    DelayTimer timer(2500, [] {
-        std::cout << "Delay timer finished\n";
-    });
-    RepeatedDelayTimer r_timer(1000, [](int i) {
-        std::cout << "Repeated delay iterated " << i << " times\n";
-    });
-
-    timer.Start();
-    r_timer.Start();
-
+    
     return Core::Application::Run();
 }
