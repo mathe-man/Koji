@@ -20,6 +20,9 @@ namespace Koji::Core {
         static void Exit();
 
         static ApplicationData data;
+
+    private:
+        static bool as_initiated;
     };
 
 } // Koji
