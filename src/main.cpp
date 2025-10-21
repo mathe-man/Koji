@@ -1,11 +1,5 @@
-#include <iostream>
-
-#define GLFW_EXPOSE_NATIVE_WIN32
-
 #include "Koji/Core/Application.h"
-#include "Koji/Core/Time.h"
-using namespace Koji;
-
+using namespace Koji::Core;
 
 // define the screen size to 1920*1080 (HD) or 1280*720
 #ifdef HD_WINDOW_SIZE
@@ -17,6 +11,11 @@ using namespace Koji;
 #endif
 
 int main(){
+
+    Application::Init (
+        ApplicationData {
+            "Koji Engine - Development", WINDOW_WIDTH, WINDOW_HEIGHT, entt::registry()
+    });
     
-    return Core::Application::Run();
+    return Application::Run();
 }
