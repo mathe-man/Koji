@@ -7,7 +7,7 @@
 #include "rlImGui.h"
 
 using namespace Koji::Components;
-using namespace Koji::Systems;
+using namespace Koji::Systems;                          
 using namespace Koji::Core;
 
 System::System(const ApplicationData& data)
