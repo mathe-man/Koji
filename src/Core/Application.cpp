@@ -13,6 +13,7 @@ bool Application::as_initiated = false;
 bool Application::Init(ApplicationData d)
 {
     data = std::move(d);
+    
     as_initiated = true;
     return true;
 }
@@ -23,21 +24,30 @@ bool Application::Run(const bool exit_at_end) {
         throw std::runtime_error("The application first need to be initiated with ApplicationData");
 
     // ECS
-    entt::registry reg = std::move(data.start_registry);
+    entt::registry reg = std::move(data.registry);
 
-    auto rendering_system = RenderingSystem(std::move(data));
+    for (Systems::System& sys : data.systems)
+        if (!sys.Init(data, reg))
+            return false;
+    
     
     
     std::cout << GetScreenHeight() << std::endl;
     // Loop
     while (!WindowShouldClose()) {
         // Update ECS / input if needed
-        
-        rendering_system.BeginFrame(reg);
-        
-        rendering_system.Frame(reg);
 
-        rendering_system.EndFrame(reg);
+        for (Systems::System& sys : data.systems)
+            if (!sys.BeginFrame(reg))
+                return false;
+        
+        for (Systems::System& sys : data.systems)
+            if (!sys.Frame(reg))
+                return false;
+
+        for (Systems::System& sys : data.systems)
+            if (!sys.EndFrame(reg))
+                return false;
     }
 
     // Shutdown

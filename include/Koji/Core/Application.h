@@ -2,6 +2,7 @@
 #include <cstdint>
 
 #include "entt/entity/registry.hpp"
+#include "Koji/ECS/Systems/Systems.hpp"
 
 namespace Koji::Core {
 
@@ -10,7 +11,8 @@ namespace Koji::Core {
         const char* name;
         uint16_t window_width;
         uint16_t window_height;
-        entt::registry start_registry;
+        entt::registry registry;
+        std::vector<Systems::System> systems;
     };
 
     class Application {

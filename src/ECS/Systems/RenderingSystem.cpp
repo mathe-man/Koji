@@ -10,13 +10,11 @@ using namespace Koji::Components;
 using namespace Koji::Systems;                          
 using namespace Koji::Core;
 
-System::System(const ApplicationData& data)
-{ }
 
 
-RenderingSystem::RenderingSystem(const ApplicationData& data) : System(data)
+
+bool RenderingSystem::Init(const ApplicationData& data, entt::registry& registry)
 {
-
     // Raylib setup
     InitWindow(data.window_width, data.window_height, data.name);
     SetTargetFPS(60);
@@ -32,6 +30,7 @@ RenderingSystem::RenderingSystem(const ApplicationData& data) : System(data)
     camera.fovy     = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
+    return true;
 }
 
 bool RenderingSystem::BeginFrame(entt::registry &registry)
@@ -89,7 +88,7 @@ void RenderingSystem::CreateMainDockspace()
     // Flags to make this window entirely invisible
     ImGuiWindowFlags window_flags =
         ImGuiWindowFlags_NoDocking |
-        ImGuiWindowFlags_NoTitleBar |
+        // ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove |
@@ -101,7 +100,7 @@ void RenderingSystem::CreateMainDockspace()
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 
-    ImGui::Begin("Main dockspace window", nullptr, window_flags);
+    ImGui::Begin("Koji Editor", nullptr, window_flags);
     ImGui::PopStyleVar(2);
 
     // Create dockspace
