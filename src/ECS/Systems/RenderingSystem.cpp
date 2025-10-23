@@ -4,7 +4,7 @@
 #include <raylib.h>
 
 #include "imgui.h"
-#include "imgui_impl_raylib.h"
+#include "rlImGui.h"
 
 using namespace Koji::Components;
 using namespace Koji::Systems;
@@ -16,10 +16,15 @@ System::System(const ApplicationData& data)
 
 RenderingSystem::RenderingSystem(const ApplicationData& data) : System(data)
 {
-    
 
+    // Raylib setup
     InitWindow(data.window_width, data.window_height, data.name);
     SetTargetFPS(60);
+    // ImGui setup
+    rlImGuiSetup(true);
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags = ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable; // Flags
 
     camera.position = { 0.0f, 10.0f, 10.0f };
     camera.target   = { 0.0f ,0.0f ,0.0f };
@@ -27,22 +32,15 @@ RenderingSystem::RenderingSystem(const ApplicationData& data) : System(data)
     camera.fovy     = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    ImGui::CreateContext();
-    ImGui_ImplRaylib_Init();
 }
-
 
 bool RenderingSystem::BeginFrame(entt::registry &registry)
 {
     BeginDrawing();
     ClearBackground(RAYWHITE);
+
     BeginMode3D(camera);
-
     
-    ImGui_ImplRaylib_NewFrame();
-    ImGui::NewFrame();
-    ImGui::ShowDemoWindow();
-
     auto view = registry.view<kTransform, Mesh, Material>();
     for (auto entity : view) {
         auto& trans = view.get<kTransform>(entity);
@@ -51,21 +49,64 @@ bool RenderingSystem::BeginFrame(entt::registry &registry)
 
         //DrawMesh(mesh, trans, mat);
     }
+
+    EndMode3D(); // 3D mode need to be ended before starting to use ImGui
+
+    // === ImGui ===
+    rlImGuiBegin();
+    CreateMainDockspace();
+
+    ImGui::ShowDemoWindow();
+
+    ImGui::Begin("Some window");
+    ImGui::Text("Some text");
+    ImGui::End();
     
     return true;
 }
 
 
 
+
 bool RenderingSystem::EndFrame(entt::registry &registry)
 {
-    ImGui::Render();
-    ImGui_ImplRaylib_RenderDrawData(ImGui::GetDrawData());
-
-    EndMode3D();
+    rlImGuiEnd();
     EndDrawing();
 
     return true;
 }
 
 
+void RenderingSystem::CreateMainDockspace()
+{
+    
+    // Get Raylib window size
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+
+    // Flags to make this window entirely invisible
+    ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_NoDocking |
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoNavFocus |
+        ImGuiWindowFlags_NoBackground;
+
+    // Remove border effects
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+    ImGui::Begin("Main dockspace window", nullptr, window_flags);
+    ImGui::PopStyleVar(2);
+
+    // Create dockspace
+    ImGuiID dockspace_id = ImGui::GetID("Main dockspace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
+
+    ImGui::End();
+}

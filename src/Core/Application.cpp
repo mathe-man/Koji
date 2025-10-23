@@ -1,4 +1,5 @@
 #include <cstring>
+#include <iostream>
 #include <raylib.h>
 #include <Koji/Core/Application.h>
 #include <Koji/ECS//Systems/Systems.hpp>
@@ -17,7 +18,7 @@ bool Application::Init(ApplicationData d)
 }
 
 
-bool Application::Run(bool exit) {
+bool Application::Run(const bool exit_at_end) {
     if (!as_initiated)
         throw std::runtime_error("The application first need to be initiated with ApplicationData");
 
@@ -27,10 +28,10 @@ bool Application::Run(bool exit) {
     auto rendering_system = RenderingSystem(std::move(data));
     
     
-
+    std::cout << GetScreenHeight() << std::endl;
     // Loop
     while (!WindowShouldClose()) {
-        // Update ECS / input if neededd
+        // Update ECS / input if needed
         
         rendering_system.BeginFrame(reg);
         
@@ -42,7 +43,7 @@ bool Application::Run(bool exit) {
     // Shutdown
     CloseWindow();
 
-    if (exit)
+    if (exit_at_end)
         Exit();
     
     return true;

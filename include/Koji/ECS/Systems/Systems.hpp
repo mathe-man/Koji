@@ -38,6 +38,8 @@ class RenderingSystem : public System
     private:
         Camera3D camera;
         uint16_t width, height;
+
+        void CreateMainDockspace();
 };
 
 
