@@ -5,7 +5,7 @@
 #include <Koji/ECS//Systems/Systems.hpp>
 
 using namespace Koji::Core;
-using Koji::Systems::RenderingSystem;
+using namespace Koji::Systems;
 
 ApplicationData Application::data {};
 bool Application::as_initiated = false;
@@ -26,35 +26,34 @@ bool Application::Run(const bool exit_at_end) {
     // ECS
     entt::registry reg = std::move(data.registry);
 
-    for (Systems::System& sys : data.systems)
-        if (!sys.Init(data, reg))
+    for (System* sys : data.systems)
+        if (!sys->Init(data, reg))
             return false;
     
     
     
     std::cout << GetScreenHeight() << std::endl;
     // Loop
-    while (!WindowShouldClose()) {
-        // Update ECS / input if needed
+    while (true) {
 
-        for (Systems::System& sys : data.systems)
-            if (!sys.BeginFrame(reg))
+        for (System* sys : data.systems)
+            if (!sys->BeginFrame(reg))
                 return false;
         
-        for (Systems::System& sys : data.systems)
-            if (!sys.Frame(reg))
+        for (System* sys : data.systems)
+            if (!sys->Frame(reg))
                 return false;
 
-        for (Systems::System& sys : data.systems)
-            if (!sys.EndFrame(reg))
+        for (System* sys : data.systems)
+            if (!sys->EndFrame(reg))
                 return false;
     }
 
     // Shutdown
-    CloseWindow();
+    for (System*  sys : data.systems)
+        if (!sys->Close())
+            return false;
 
-    if (exit_at_end)
-        Exit();
     
     return true;
 }

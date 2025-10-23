@@ -12,7 +12,7 @@ namespace Koji::Core {
         uint16_t window_width;
         uint16_t window_height;
         entt::registry registry;
-        std::vector<Systems::System> systems;
+        std::vector<Systems::System*> systems;
     };
 
     class Application {

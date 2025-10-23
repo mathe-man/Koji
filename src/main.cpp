@@ -14,7 +14,10 @@ int main(){
 
     Application::Init (
         ApplicationData {
-            "Koji Engine - Development", WINDOW_WIDTH, WINDOW_HEIGHT, entt::registry()
+            "Koji Engine - Development",
+            WINDOW_WIDTH, WINDOW_HEIGHT,
+            entt::registry(),
+            {new Koji::Systems::RenderingSystem()}
     });
     
     return Application::Run();

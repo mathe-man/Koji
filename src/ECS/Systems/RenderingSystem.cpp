@@ -35,6 +35,9 @@ bool RenderingSystem::Init(const ApplicationData& data, entt::registry& registry
 
 bool RenderingSystem::BeginFrame(entt::registry &registry)
 {
+    if (WindowShouldClose())
+        return false;
+    
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
@@ -74,6 +77,13 @@ bool RenderingSystem::EndFrame(entt::registry &registry)
 
     return true;
 }
+
+bool RenderingSystem::Close()
+{
+    CloseWindow();
+    return true;
+}
+
 
 
 void RenderingSystem::CreateMainDockspace()
