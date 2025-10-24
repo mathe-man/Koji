@@ -3,6 +3,7 @@
 #include <raylib.h>
 #include <Koji/Core/Application.h>
 #include <Koji/ECS//Systems/Systems.hpp>
+#include <Koji/ECS//Components/Components.hpp>
 
 using namespace Koji::Core;
 using namespace Koji::Systems;
