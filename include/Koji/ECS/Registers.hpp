@@ -1,9 +1,12 @@
 #pragma once
 #include <iostream>
 #include <typeindex>
-#include <entt/entt.hpp>
 
 // forward declaration
+namespace entt {
+    class registry;
+    class entity;
+}
 class kComponent;
 
 

@@ -1,8 +1,4 @@
 #pragma once
-#include <cstdarg>
-#include <cstdio>
-#include <cwchar>
-#include <entt/entt.hpp>
 #include <raylib.h>
 
 namespace Koji::Core

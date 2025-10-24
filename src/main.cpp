@@ -1,5 +1,9 @@
 #include "Koji/Core/Application.h"
-using namespace Koji::Core;
+#include "Koji/ECS/Systems/Systems.hpp"
+#include "Koji/ECS/Components/Components.hpp"
+
+
+using namespace Koji;
 
 // define the screen size to 1920*1080 (HD) or 1280*720
 #ifdef HD_WINDOW_SIZE
@@ -12,13 +16,13 @@ using namespace Koji::Core;
 
 int main(){
 
-    Application::Init (
-        ApplicationData {
+    Core::Application::Init (
+        Core::ApplicationData {
             "Koji Engine - Development",
             WINDOW_WIDTH, WINDOW_HEIGHT,
             entt::registry(),
             {new Koji::Systems::RenderingSystem()}
     });
     
-    return Application::Run();
+    return Core::Application::Run();
 }

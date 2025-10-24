@@ -1,9 +1,7 @@
 #pragma once
-#include  <iostream>
 #include <chrono>
 #include <functional>
 #include <thread>
-#include <utility>
 
 namespace Koji {
     class Time {

@@ -1,8 +1,9 @@
 #pragma once
 #include <cstdint>
-
 #include "entt/entity/registry.hpp"
-#include "Koji/ECS/Systems/Systems.hpp"
+
+// Forward de
+namespace Koji::Systems { class System; }
 
 namespace Koji::Core {
 
