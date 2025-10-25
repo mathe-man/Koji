@@ -7,7 +7,7 @@ namespace Koji::Systems { class System; }
 
 namespace Koji::Core {
 
-    struct ApplicationData
+    struct Scene
     {
         const char* name;
         uint16_t window_width;
@@ -18,14 +18,9 @@ namespace Koji::Core {
 
     class Application {
     public:
-        static bool Init(ApplicationData d);
-        static bool Run(bool exit_at_end = true);
-        static void Exit();
+        static bool Run(Scene* scene);
 
-        static ApplicationData data;
-
-    private:
-        static bool as_initiated;
+        static Scene* scene;
     };
 
 } // Koji

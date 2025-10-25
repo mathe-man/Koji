@@ -8,27 +8,18 @@
 using namespace Koji::Core;
 using namespace Koji::Systems;
 
-ApplicationData Application::data {};
-bool Application::as_initiated = false;
+Scene* Application::scene {}; // Static member need to be declared
 
-bool Application::Init(ApplicationData d)
-{
-    data = std::move(d);
+bool Application::Run(Scene* s) {
+    // Set the static member
+    scene = s;
+    scene->systems.insert(scene->systems.begin(), new RenderingSystem);
     
-    as_initiated = true;
-    return true;
-}
-
-
-bool Application::Run(const bool exit_at_end) {
-    if (!as_initiated)
-        throw std::runtime_error("The application first need to be initiated with ApplicationData");
-
     // ECS
-    entt::registry reg = std::move(data.registry);
+    entt::registry reg = std::move(scene->registry);
 
-    for (System* sys : data.systems)
-        if (!sys->Init(data, reg))
+    for (System* sys : scene->systems)
+        if (!sys->Init(*scene, reg))
             return false;
     
     
@@ -37,29 +28,25 @@ bool Application::Run(const bool exit_at_end) {
     // Loop
     while (true) {
 
-        for (System* sys : data.systems)
+        for (System* sys : scene->systems)
             if (!sys->BeginFrame(reg))
                 return false;
         
-        for (System* sys : data.systems)
+        for (System* sys : scene->systems)
             if (!sys->Frame(reg))
                 return false;
 
-        for (System* sys : data.systems)
+        for (System* sys : scene->systems)
             if (!sys->EndFrame(reg))
                 return false;
     }
 
     // Shutdown
-    for (System*  sys : data.systems)
+    for (System*  sys : scene->systems)
         if (!sys->Close())
             return false;
 
     
     return true;
-}
-
-void Application::Exit()
-{
 }
 

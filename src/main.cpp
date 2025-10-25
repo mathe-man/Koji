@@ -16,13 +16,12 @@ using namespace Koji;
 
 int main(){
 
-    Core::Application::Init (
-        Core::ApplicationData {
-            "Koji Engine - Development",
-            WINDOW_WIDTH, WINDOW_HEIGHT,
-            entt::registry(),
-            {new Koji::Systems::RenderingSystem()}
-    });
+    Core::Scene myScene {
+        "Koji Engine - Development",
+        WINDOW_WIDTH, WINDOW_HEIGHT,
+        entt::registry(),
+        std::vector<Systems::System*>()
+    };
     
-    return Core::Application::Run();
+    return Core::Application::Run(&myScene);
 }

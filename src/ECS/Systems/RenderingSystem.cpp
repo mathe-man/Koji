@@ -13,10 +13,10 @@ using namespace Koji::Core;
 
 
 
-bool RenderingSystem::Init(const ApplicationData& data, entt::registry& registry)
+bool RenderingSystem::Init(const Scene& scene, entt::registry& registry)
 {
     // Raylib setup
-    InitWindow(data.window_width, data.window_height, data.name);
+    InitWindow(scene.window_width, scene.window_height, scene.name);
     SetTargetFPS(60);
     // ImGui setup
     rlImGuiSetup(true);
