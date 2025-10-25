@@ -3,7 +3,7 @@
 #include <functional>
 #include <thread>
 
-namespace Koji {
+namespace Koji::Engine {
     class Time {
     public:
         static void Init();
@@ -73,4 +73,4 @@ namespace Koji {
         std::chrono::high_resolution_clock::time_point start;
         std::function<void(double)> _callback;
     };
-} // Koji
+} // Koji::Engine

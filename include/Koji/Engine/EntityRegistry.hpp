@@ -1,17 +1,11 @@
 #pragma once
-#include <iostream>
 #include <typeindex>
+#include "entt/entt.hpp"
 
-// forward declaration
-namespace entt {
-    class registry;
-    class entity;
-}
-class kComponent;
-
-
-namespace Koji::Registers
+namespace Koji::Engine
 {
+    class kComponent;
+    
     
     // TODO replace entt registry by this class in the engine
     class EntityRegistry : public entt::registry {
@@ -22,13 +16,8 @@ namespace Koji::Registers
         T* AddComponent(entt::entity entity, Args&&... args) {
             if constexpr (std::is_base_of_v<kComponent, T>) {
                 return &entt::registry::emplace<T>(entity, std::forward<Args>(args)...);
-            } else {
-                // std::cerr
-                std::cout
-                << "[ECS] error: tried to add invalid class of component: '"
-                << typeid(T).name() << "' is not derived from class kComponent\n";
-                return nullptr;
             }
+            return nullptr;
         }
 
     private:
@@ -37,4 +26,4 @@ namespace Koji::Registers
         using entt::registry::emplace_or_replace;
     };
     
-}
+} // namespace Koji::Engine

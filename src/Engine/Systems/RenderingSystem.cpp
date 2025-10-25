@@ -1,14 +1,13 @@
-#include <Koji/Core/Application.h>
-#include "Koji//ECS/Systems/Systems.hpp"
-#include "Koji/ECS/Components/Components.hpp"
-#include <raylib.h>
+#include <Koji/Engine/Scene.h>
+#include <Koji/Engine/Systems.hpp>
+#include "Koji/Engine/Components.hpp"
 
+#include <raylib.h>
 #include "imgui.h"
 #include "rlImGui.h"
 
-using namespace Koji::Components;
-using namespace Koji::Systems;                          
-using namespace Koji::Core;
+using namespace Koji::Engine;
+using namespace Koji::Engine::Components;
 
 
 

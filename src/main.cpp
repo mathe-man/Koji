@@ -1,9 +1,10 @@
-#include "Koji/Core/Application.h"
-#include "Koji/ECS/Systems/Systems.hpp"
-#include "Koji/ECS/Components/Components.hpp"
+#include <Koji/Engine/Scene.h>
+#include <Koji/Engine/Application.hpp>
+#include <Koji/Engine/Systems.hpp>
+#include <Koji/Engine/Components.hpp>
 
 
-using namespace Koji;
+using namespace Koji::Engine;
 
 // define the screen size to 1920*1080 (HD) or 1280*720
 #ifdef HD_WINDOW_SIZE
@@ -16,12 +17,12 @@ using namespace Koji;
 
 int main(){
 
-    Core::Scene myScene {
+    Scene myScene {
         "Koji Engine - Development",
         WINDOW_WIDTH, WINDOW_HEIGHT,
         entt::registry(),
-        std::vector<Systems::System*>()
+        std::vector<System*>()
     };
     
-    return Core::Application::Run(&myScene);
+    return Application::Run(&myScene);
 }

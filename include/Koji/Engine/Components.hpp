@@ -1,9 +1,14 @@
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <functional>
+
 #include "imgui.h"
 #include "raymath.h"
 
 
 
-namespace Koji::Components
+namespace Koji::Engine
 {
     class kComponent {
     public:
@@ -35,17 +40,19 @@ namespace Koji::Components
     };
 
 #define REGISTER_COMPONENT(T) \
-static_assert(std::is_base_of_v<kComponent, T>, #T " must derive from kComponent"); \
-namespace { \
-    struct T##_registrar { \
-        T##_registrar() { \
-            kComponent::RegisteredComponents()[T().GetName()] = []() { return std::make_unique<T>(); }; \
-        } \
-    }; \
-    static T##_registrar global_##T##_registrar; \
-}
+    static_assert(std::is_base_of_v<kComponent, T>, #T " must derive from kComponent"); \
+    namespace { \
+        struct T##_registrar { \
+            T##_registrar() { \
+                kComponent::RegisteredComponents()[T().GetName()] = []() { return std::make_unique<T>(); }; \
+            } \
+        }; \
+        static T##_registrar global_##T##_registrar; \
+    }
 
     
+namespace Components
+{
     class kTransform : public kComponent {
     public:
         [[nodiscard]] const char* GetName() const override { return "kTransform"; }
@@ -104,4 +111,6 @@ namespace { \
         // TODO implement angular velocity
     };
     REGISTER_COMPONENT(kVelocity)
-}
+
+} // namespace Koji::Engine::Components
+} // namespace Koji::Engine

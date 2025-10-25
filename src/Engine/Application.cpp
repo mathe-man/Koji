@@ -1,14 +1,11 @@
-#include <cstring>
-#include <iostream>
-#include <raylib.h>
-#include <Koji/Core/Application.h>
-#include <Koji/ECS//Systems/Systems.hpp>
-#include <Koji/ECS//Components/Components.hpp>
+#include <Koji/Engine/Scene.h>
+#include <Koji/Engine/Application.hpp>
+#include "Koji/Engine/Systems.hpp"
 
-using namespace Koji::Core;
-using namespace Koji::Systems;
 
-Scene* Application::scene {}; // Static member need to be declared
+using namespace Koji::Engine;
+
+Scene* Application::scene {};  // Static member need to be declared
 
 bool Application::Run(Scene* s) {
     // Set the static member
@@ -24,7 +21,6 @@ bool Application::Run(Scene* s) {
     
     
     
-    std::cout << GetScreenHeight() << std::endl;
     // Loop
     while (true) {
 

@@ -1,6 +1,6 @@
-#include "../../include/Koji/Core/Time.h"
+#include <Koji/Engine/Time.h>
 
-using namespace Koji;
+using namespace Koji::Engine;
 using namespace std::chrono;
 
 void Time::Init() {
@@ -14,11 +14,11 @@ float Time::DeltaTime() {
     TimePoint now = Clock::now();
 
     // Time since last frame
-    std::chrono::duration<float> frameDuration = now - s_LastFrameTime;
+    duration<float> frameDuration = now - s_LastFrameTime;
     s_DeltaTime = frameDuration.count();
 
     // Total time since start
-    std::chrono::duration<float> totalTime = now - s_StartTime;
+    duration<float> totalTime = now - s_StartTime;
     s_TotalTime = totalTime.count();
 
     s_LastFrameTime = now;
