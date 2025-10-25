@@ -15,7 +15,7 @@ using namespace Koji::Editor::Systems;
 bool EditorRenderingSystem::Init(const Scene& scene, entt::registry& registry)
 {
     // Raylib setup
-    SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(scene.window_width, scene.window_height, scene.name);
     render_target = LoadRenderTexture(scene.window_width, scene.window_height);
     SetTextureFilter(render_target.texture, TEXTURE_FILTER_BILINEAR);

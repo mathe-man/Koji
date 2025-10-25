@@ -38,7 +38,7 @@ class RaylibRenderingSystem : public System
 
         bool Frame      (entt::registry &registry)   override { return true; }
         bool BeginFrame (entt::registry &registry)   override;
-        bool EndFrame   (entt::registry &registry)   override;
+        bool EndFrame   (entt::registry &registry)   override { return true; }
 
         bool Close() override;
 
@@ -47,8 +47,6 @@ class RaylibRenderingSystem : public System
     private:
         Camera3D camera {};
         uint16_t width {}, height {};
-
-        void CreateMainDockspace();
 };
 
 
