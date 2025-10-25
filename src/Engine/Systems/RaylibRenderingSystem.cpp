@@ -12,7 +12,7 @@ using namespace Koji::Engine::Components;
 
 
 
-bool RenderingSystem::Init(const Scene& scene, entt::registry& registry)
+bool RaylibRenderingSystem::Init(const Scene& scene, entt::registry& registry)
 {
     // Raylib setup
     InitWindow(scene.window_width, scene.window_height, scene.name);
@@ -32,7 +32,7 @@ bool RenderingSystem::Init(const Scene& scene, entt::registry& registry)
     return true;
 }
 
-bool RenderingSystem::BeginFrame(entt::registry &registry)
+bool RaylibRenderingSystem::BeginFrame(entt::registry &registry)
 {
     if (WindowShouldClose())
         return false;
@@ -69,7 +69,7 @@ bool RenderingSystem::BeginFrame(entt::registry &registry)
 
 
 
-bool RenderingSystem::EndFrame(entt::registry &registry)
+bool RaylibRenderingSystem::EndFrame(entt::registry &registry)
 {
     rlImGuiEnd();
     EndDrawing();
@@ -77,7 +77,7 @@ bool RenderingSystem::EndFrame(entt::registry &registry)
     return true;
 }
 
-bool RenderingSystem::Close()
+bool RaylibRenderingSystem::Close()
 {
     CloseWindow();
     return true;
@@ -85,7 +85,7 @@ bool RenderingSystem::Close()
 
 
 
-void RenderingSystem::CreateMainDockspace()
+void RaylibRenderingSystem::CreateMainDockspace()
 {
     
     // Get Raylib window size

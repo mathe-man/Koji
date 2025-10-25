@@ -1,7 +1,5 @@
 #pragma once
-
-namespace Koji::Engine
-{ struct Scene; }
+#include <Koji/Engine.h>
 
 namespace Koji::Editor
 {

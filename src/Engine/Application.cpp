@@ -10,13 +10,12 @@ Scene* Application::scene {};  // Static member need to be declared
 bool Application::Run(Scene* s) {
     // Set the static member
     scene = s;
-    scene->systems.insert(scene->systems.begin(), new RenderingSystem);
+    scene->systems.insert(scene->systems.begin(), new RaylibRenderingSystem);
     
-    // ECS
-    entt::registry reg = std::move(scene->registry);
+    
 
     for (System* sys : scene->systems)
-        if (!sys->Init(*scene, reg))
+        if (!sys->Init(*scene, scene->registry))
             return false;
     
     
@@ -25,15 +24,15 @@ bool Application::Run(Scene* s) {
     while (true) {
 
         for (System* sys : scene->systems)
-            if (!sys->BeginFrame(reg))
+            if (!sys->BeginFrame(scene->registry))
                 return false;
         
         for (System* sys : scene->systems)
-            if (!sys->Frame(reg))
+            if (!sys->Frame(scene->registry))
                 return false;
 
         for (System* sys : scene->systems)
-            if (!sys->EndFrame(reg))
+            if (!sys->EndFrame(scene->registry))
                 return false;
     }
 

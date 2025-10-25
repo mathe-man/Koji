@@ -1,10 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <raylib.h>
+#include <entt/entt.hpp>
 
-// forward declarations
-namespace entt
-{ class registry; }
 
 namespace Koji::Engine
 {
@@ -30,12 +28,12 @@ class System
    
 
 
-class RenderingSystem : public System
+class RaylibRenderingSystem : public System
 {
     public:
-        ~RenderingSystem() override = default;
+        ~RaylibRenderingSystem() override = default;
 
-        [[nodiscard]] const char* GetName() const override { return "Rendering System"; }
+        [[nodiscard]] const char* GetName() const override { return "Raylib Rendering System"; }
         bool Init(const Scene& scene, entt::registry& registry) override;
 
         bool Frame      (entt::registry &registry)   override { return true; }

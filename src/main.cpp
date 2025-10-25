@@ -1,10 +1,9 @@
-#include <Koji/Engine/Scene.h>
-#include <Koji/Engine/Application.hpp>
-#include <Koji/Engine/Systems.hpp>
-#include <Koji/Engine/Components.hpp>
+#include <Koji/Editor.h>
+#include <Koji/Engine.h>
 
 
 using namespace Koji::Engine;
+using namespace Koji::Editor;
 
 // define the screen size to 1920*1080 (HD) or 1280*720
 #ifdef HD_WINDOW_SIZE
@@ -24,5 +23,5 @@ int main(){
         std::vector<System*>()
     };
     
-    return Application::Run(&myScene);
+    return Editor::Run(&myScene);
 }
