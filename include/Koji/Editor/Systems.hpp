@@ -29,8 +29,6 @@ private:
     Camera3D camera {};
     int lastTexW = 0;
     int lastTexH = 0;
-
-    void CreateMainDockspace();
 };
     
 } // namespace Koji::Editor::Systems

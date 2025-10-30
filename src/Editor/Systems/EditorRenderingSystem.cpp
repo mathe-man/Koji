@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <rlImGui.h>
 
+#include "Koji/Editor/GuiManager.hpp"
 #include "Koji/Engine/Components.hpp"
 #include "Koji/Engine/Scene.h"
 #include "reactphysics3d/engine/OverlappingPairs.h"
@@ -40,7 +41,7 @@ bool EditorRenderingSystem::Init(const Scene& scene, entt::registry& registry)
     camera.fovy     = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
     
-    return true;
+    return true && GuiManager::Init(registry);
 }
 
 bool EditorRenderingSystem::BeginFrame(entt::registry& registry)
@@ -58,8 +59,9 @@ bool EditorRenderingSystem::BeginFrame(entt::registry& registry)
     // Game view drawing => will be displayed in a ImGui window after
     BeginMode3D(camera);
 
-    DrawSphereWires({0.f, 0.f, 0.f}, 2.0f, 10, 15, YELLOW);
-
+    DrawSphereWires({0.f, 0.f, 0.f}, 2.0f, 10, 15, RED);
+    DrawCubeWiresV(Vector3{0.f,0.f,0.f}, Vector3{3.f,3.f,3.f}, BLUE);
+    
     auto view = registry.view<Components::kTransform, Mesh, Material>();
     for (auto entity : view) {
         // TODO add mesh and material components
@@ -78,10 +80,10 @@ bool EditorRenderingSystem::BeginFrame(entt::registry& registry)
 
     // === ImGui / Editor Ui ===
     rlImGuiBegin();
-    CreateMainDockspace();
+    
 
-    ImGui::ShowDemoWindow();
-
+    // TODO make a 3D scene window from this code
+    /*
     ImGui::Begin("Scene - 3D render");
 
     // Allow the ImGui window user to request a particular viewport size (or use content region size)
@@ -107,8 +109,8 @@ bool EditorRenderingSystem::BeginFrame(entt::registry& registry)
     // UV0 and UV1 are flip vertically because raylib target texture are upside down
     ImGui::Image(texId, ImVec2((float)lastTexW, (float)lastTexH), ImVec2(0,1), ImVec2(1,0));
 
-    ImGui::End();
-
+    ImGui::End();*/
+    GuiManager::GuiFrame(registry);
     
     rlImGuiEnd();
     EndDrawing();
@@ -127,39 +129,4 @@ bool EditorRenderingSystem::Close()
 
 
 
-
-
-void EditorRenderingSystem::CreateMainDockspace()
-{
-    
-    // Get Raylib window size
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->Pos);
-    ImGui::SetNextWindowSize(viewport->Size);
-    ImGui::SetNextWindowViewport(viewport->ID);
-
-    // Flags to make this window entirely invisible
-    ImGuiWindowFlags window_flags =
-        ImGuiWindowFlags_NoDocking |
-        // ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoNavFocus |
-        ImGuiWindowFlags_NoBackground;
-
-    // Remove border effects
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-
-    ImGui::Begin("Koji Editor", nullptr, window_flags);
-    ImGui::PopStyleVar(2);
-
-    // Create dockspace
-    ImGuiID dockspace_id = ImGui::GetID("Main dockspace");
-    ImGui::DockSpace(dockspace_id, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
-
-    ImGui::End();
-}
 
