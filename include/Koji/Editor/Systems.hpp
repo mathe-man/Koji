@@ -27,8 +27,6 @@ public:
 
 private:
     Camera3D camera {};
-    int lastTexW = 0;
-    int lastTexH = 0;
 };
     
 } // namespace Koji::Editor::Systems

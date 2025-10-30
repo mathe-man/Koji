@@ -1,4 +1,5 @@
 #include <Koji/Editor/GuiManager.hpp>
+#include <Koji/Editor/GuiWindows.hpp>
 
 
 using namespace Koji::Editor;
@@ -8,9 +9,14 @@ bool GuiManager::Init(entt::registry& registry)
     return true;
 }
 
+std::vector<GuiWindow*> GuiManager::windows = {};
+
 bool GuiManager::GuiFrame(entt::registry& registry)
 {
     CreateMainDockspace();
+
+    for (GuiWindow* win : windows)
+        win->Draw();
     
     return true;
 }
@@ -69,6 +75,11 @@ MenuNode GuiManager::root { "Editor Main Menu", false, nullptr,
         {
             new MenuNode { "Time profiler" },
             new MenuNode { "Memory" }
+        }
+    },
+    new MenuNode { "Window", false, nullptr,
+        {
+            new MenuNode {"Scene view", false, []{windows.push_back(new SceneViewWindow());}}
         }
     },
     new MenuNode { "Misc", false, nullptr,

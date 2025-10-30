@@ -16,6 +16,9 @@ namespace Koji::Editor
         std::function<void()> callback = nullptr;
         std::vector<MenuNode*> childrens = std::vector<MenuNode*>();
     }; 
+
+    // forward declaration
+    class GuiWindow;
     
     class GuiManager
     {
@@ -23,8 +26,7 @@ namespace Koji::Editor
         static bool Init(entt::registry& registry);
         static bool GuiFrame(entt::registry& registry);
 
-
-        
+        static std::vector<GuiWindow*> windows;
         
         static MenuNode root;
     private:

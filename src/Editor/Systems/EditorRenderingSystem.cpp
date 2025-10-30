@@ -21,9 +21,6 @@ bool EditorRenderingSystem::Init(const Scene& scene, entt::registry& registry)
     render_target = LoadRenderTexture(scene.window_width, scene.window_height);
     SetTextureFilter(render_target.texture, TEXTURE_FILTER_BILINEAR);
 
-    // Variables for ImGui window size tracking
-    lastTexW = render_target.texture.width;
-    lastTexH = render_target.texture.height;
     
     SetTargetFPS(60);
 
@@ -80,36 +77,7 @@ bool EditorRenderingSystem::BeginFrame(entt::registry& registry)
 
     // === ImGui / Editor Ui ===
     rlImGuiBegin();
-    
 
-    // TODO make a 3D scene window from this code
-    /*
-    ImGui::Begin("Scene - 3D render");
-
-    // Allow the ImGui window user to request a particular viewport size (or use content region size)
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-
-    // If the content region changed, resize the render texture to match (or scale as you want)
-    int wantW = (int)avail.x;
-    int wantH = (int)avail.y;
-
-    if (wantW <= 0) wantW = 64;
-    if (wantH <= 0) wantH = 64;
-
-    if (wantW != lastTexW || wantH != lastTexH) {
-        UnloadRenderTexture(render_target);
-        render_target = LoadRenderTexture(wantW, wantH);
-        lastTexW = wantW;
-        lastTexH = wantH;
-    }
-
-    // Convert from Raylib/OpenGl texture id -> ImGui texture id
-    ImTextureID texId = (ImTextureID)(intptr_t)render_target.texture.id;
-
-    // UV0 and UV1 are flip vertically because raylib target texture are upside down
-    ImGui::Image(texId, ImVec2((float)lastTexW, (float)lastTexH), ImVec2(0,1), ImVec2(1,0));
-
-    ImGui::End();*/
     GuiManager::GuiFrame(registry);
     
     rlImGuiEnd();
