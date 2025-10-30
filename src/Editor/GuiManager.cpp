@@ -15,23 +15,6 @@ bool GuiManager::GuiFrame(entt::registry& registry)
     return true;
 }
 
-void GuiManager::MenuBar()
-{
-    if (ImGui::BeginMenuBar())
-    {
-        if (ImGui::BeginMenu("Tools")) {
-            if (ImGui::BeginMenu("Advanced")) {
-                ImGui::MenuItem("Profiler");
-                ImGui::MenuItem("Debugger");
-                ImGui::EndMenu();
-            }
-            ImGui::EndMenu();
-        }
-
-        ImGui::EndMenuBar();
-    }
-}
-
 
 void GuiManager::CreateMainDockspace()
 {
@@ -72,3 +55,64 @@ void GuiManager::CreateMainDockspace()
     ImGui::End();
 }
 
+
+MenuNode GuiManager::root { "Editor Main Menu", false, nullptr,
+{
+    new MenuNode { "File", false, nullptr,
+{
+            new MenuNode { "Open"  },
+            new MenuNode { "Edit"  },
+            new MenuNode { "Close" }
+            }
+    },
+    new MenuNode { "Debugging", false, nullptr,
+        {
+            new MenuNode { "Time profiler" },
+            new MenuNode { "Memory" }
+        }
+    },
+    new MenuNode { "Misc", false, nullptr,
+        {
+            new MenuNode { "Add node", false,
+                []
+                {
+                    GuiManager::root.childrens.push_back(new MenuNode { "New node"});
+                }}
+        }
+    }
+    
+}
+};
+
+
+void GuiManager::MenuBar()
+{
+            if (ImGui::BeginMenuBar()) {
+        for (MenuNode* node : root.childrens)
+            if (!node->callback && ImGui::BeginMenu(node->name.c_str())) {
+                for (MenuNode* child_node : node->childrens)
+                    RenderMenuNode(*child_node);
+
+                ImGui::EndMenu();
+            }
+        
+        ImGui::EndMenuBar();
+    }
+}
+
+
+void GuiManager::RenderMenuNode(MenuNode node)
+{
+    if (!node.callback && ImGui::BeginMenu(node.name.c_str())) // Create menu if there is no callback
+    {
+        for (MenuNode* child_node : node.childrens)
+            RenderMenuNode(*child_node);
+
+        ImGui::EndMenu();
+    }
+
+    else if (   node.callback &&
+                ImGui::MenuItem(node.name.c_str(), nullptr, &node.active))
+        node.callback(); // Call the  callback if the item is clicked
+
+}

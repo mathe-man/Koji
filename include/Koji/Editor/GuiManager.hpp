@@ -9,7 +9,13 @@
 
 namespace Koji::Editor
 {
-    
+    struct MenuNode
+    {
+        std::string name;
+        bool active = false;
+        std::function<void()> callback = nullptr;
+        std::vector<MenuNode*> childrens = std::vector<MenuNode*>();
+    }; 
     
     class GuiManager
     {
@@ -17,10 +23,13 @@ namespace Koji::Editor
         static bool Init(entt::registry& registry);
         static bool GuiFrame(entt::registry& registry);
 
-        static void AddMenuItem(const std::string& path, std::function<void()> func);
 
+        
+        
+        static MenuNode root;
     private:
         static void CreateMainDockspace();
         static void MenuBar();
+        static void RenderMenuNode(MenuNode node);
     };
 } // namespace Koji::Editor
