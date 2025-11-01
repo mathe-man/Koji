@@ -15,6 +15,12 @@ namespace Koji::Editor
     };
 
 
+    class GuiDemoWindow : public GuiWindow
+    {
+    public:
+        void Draw() override { ImGui::ShowDemoWindow(); }
+    };
+    
     class SceneViewWindow : public GuiWindow
     {
     public:

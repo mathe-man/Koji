@@ -22,6 +22,17 @@ bool GuiManager::GuiFrame(entt::registry& registry)
 }
 
 
+MenuNode GuiManager::root { "Editor Main Menu", false, nullptr,
+    {
+        new MenuNode { "Window", false, nullptr,
+            {
+                new MenuNode {"Gui Demo", false, []{windows.push_back(new GuiDemoWindow());}},
+                new MenuNode {"Scene view", false, []{windows.push_back(new SceneViewWindow());}}
+            }
+        }
+    }
+};
+
 void GuiManager::CreateMainDockspace()
 {
     
@@ -60,40 +71,6 @@ void GuiManager::CreateMainDockspace()
     
     ImGui::End();
 }
-
-
-MenuNode GuiManager::root { "Editor Main Menu", false, nullptr,
-{
-    new MenuNode { "File", false, nullptr,
-{
-            new MenuNode { "Open"  },
-            new MenuNode { "Edit"  },
-            new MenuNode { "Close" }
-            }
-    },
-    new MenuNode { "Debugging", false, nullptr,
-        {
-            new MenuNode { "Time profiler" },
-            new MenuNode { "Memory" }
-        }
-    },
-    new MenuNode { "Window", false, nullptr,
-        {
-            new MenuNode {"Scene view", false, []{windows.push_back(new SceneViewWindow());}}
-        }
-    },
-    new MenuNode { "Misc", false, nullptr,
-        {
-            new MenuNode { "Add node", false,
-                []
-                {
-                    GuiManager::root.childrens.push_back(new MenuNode { "New node"});
-                }}
-        }
-    }
-    
-}
-};
 
 
 void GuiManager::MenuBar()
