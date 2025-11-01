@@ -22,6 +22,9 @@ int main(){
         entt::registry(),
         std::vector<System*>()
     };
+
+    auto myEntity = myScene.registry.create();
+    myScene.registry.emplace<Components::kMetaData>(myEntity, "My Entity");
     
     return Editor::Run(&myScene);
 }

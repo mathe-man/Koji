@@ -54,9 +54,28 @@ namespace Koji::Engine
     
 namespace Components
 {
+    class kMetaData : kComponent {
+    public:
+        [[nodiscard]] const char* GetName() const override { return "kMetaData"; }
+
+        char* name;
+        entt::entity parent = entt::null;
+        std::vector<entt::entity> children = std::vector<entt::entity>();
+
+        void Inspect() override {
+            ImGui::InputText("Name", name, 128, ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::Text("Number of children: %s", children.size());
+        };
+    };
+    
     class kTransform : public kComponent {
     public:
         [[nodiscard]] const char* GetName() const override { return "kTransform"; }
+        
+        Vector3 position  {0.0f, 0.0f, 0.0f};
+        Vector4 rotation  {1.0f, 0.0f, 0.0f, 0.0f};
+        Vector3 scale     {1.f, 1.f, 1.f};
+        
         void Inspect() override {
             // --- Position ---
             ImGui::DragFloat3("position", &position.x, 0.1);
@@ -94,10 +113,6 @@ namespace Components
             // --- Scale ---
             ImGui::DragFloat3("Scale", &scale.x, 0.1);
         }
-        
-        Vector3 position  {0.0f, 0.0f, 0.0f};
-        Vector4 rotation  {1.0f, 0.0f, 0.0f, 0.0f};
-        Vector3 scale     {1.f, 1.f, 1.f};
     };
     REGISTER_COMPONENT(kTransform)
     
