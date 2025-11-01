@@ -45,20 +45,22 @@ namespace Koji::Engine
     namespace { \
         struct T##_registrar { \
             T##_registrar() { \
-                kComponent::RegisteredComponents()[T().GetName()] = []() { return std::make_unique<T>(); }; \
+                kComponent::RegisteredComponents()[T().GetName()] = []() -> std::unique_ptr<kComponent> { \
+                    return std::make_unique<T>(); \
+                }; \
             } \
         }; \
         static T##_registrar global_##T##_registrar; \
     }
-
     
 namespace Components
 {
-    class kMetaData : kComponent {
+    class kMetaData : public kComponent {
     public:
         [[nodiscard]] const char* GetName() const override { return "kMetaData"; }
-
-        char* name;
+        
+        
+        char name[128] =  "Entity";
         entt::entity parent = entt::null;
         std::vector<entt::entity> children = std::vector<entt::entity>();
 
@@ -67,6 +69,7 @@ namespace Components
             ImGui::Text("Number of children: %s", children.size());
         };
     };
+    REGISTER_COMPONENT(kMetaData)
     
     class kTransform : public kComponent {
     public:

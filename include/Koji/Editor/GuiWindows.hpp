@@ -35,4 +35,10 @@ namespace Koji::Editor
         int lastTexW = 0;
         int lastTexH = 0;
     };
+
+    class SceneEntitiesTree : public GuiWindow
+    {
+    public:
+        void Draw() override;
+    };
 } // namesapce Koji::Editor

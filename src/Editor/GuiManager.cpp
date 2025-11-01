@@ -36,7 +36,8 @@ MenuNode GuiManager::root { "Editor Main Menu", false, nullptr,
         new MenuNode { "Window", false, nullptr,
             {
                 new MenuNode {"Gui Demo", false, []{windows.push_back(new GuiDemoWindow());}},
-                new MenuNode {"Scene view", false, []{windows.push_back(new SceneViewWindow());}}
+                new MenuNode {"Scene view", false, []{windows.push_back(new SceneViewWindow());}},
+                new MenuNode {"Scene entites", false, []{windows.push_back(new SceneEntitiesTree());}}
             }
         }
     }

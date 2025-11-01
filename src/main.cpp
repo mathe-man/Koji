@@ -24,7 +24,11 @@ int main(){
     };
 
     auto myEntity = myScene.registry.create();
-    myScene.registry.emplace<Components::kMetaData>(myEntity, "My Entity");
+    auto myEntityData = myScene.registry.emplace<Components::kMetaData>(myEntity);
+
+    // Change name
+    // TOFIX name change don't appear in editor
+    strlcpy(myEntityData.name, "My entity", 128);
     
     return Editor::Run(&myScene);
 }
