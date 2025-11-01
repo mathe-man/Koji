@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <Koji/Editor/GuiWindows.hpp>
 #include <Koji/Editor/Editor.hpp>
+
+#include "imgui_internal.h"
 #include "raylib.h"
 #include "Koji/Engine/Scene.h"
 

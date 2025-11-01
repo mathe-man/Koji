@@ -6,6 +6,14 @@ using namespace Koji::Editor;
 
 bool GuiManager::Init(entt::registry& registry)
 {
+    // Change ImGui default styles
+    ImGuiStyle& style = ImGui::GetStyle();
+    
+    // Title bar colors === Set the same color for different states of the window
+    style.Colors[ImGuiCol_TitleBg]           = ImVec4(0.15f, 0.15f, 0.15f, 1.0f); // unfocused
+    style.Colors[ImGuiCol_TitleBgActive]     = ImVec4(0.15f, 0.15f, 0.15f, 1.0f); // focused
+    style.Colors[ImGuiCol_TitleBgCollapsed]  = ImVec4(0.15f, 0.15f, 0.15f, 1.0f); // collapsed
+    
     return true;
 }
 
@@ -59,7 +67,8 @@ void GuiManager::CreateMainDockspace()
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
-
+    // Menu bar height
+    
     ImGui::Begin("Koji Editor", nullptr, window_flags);
     ImGui::PopStyleVar(3);
 
@@ -76,7 +85,12 @@ void GuiManager::CreateMainDockspace()
 
 void GuiManager::MenuBar()
 {
-            if (ImGui::BeginMenuBar()) {
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{10, 14});
+    
+    if (ImGui::BeginMainMenuBar()) {
+        
+        ImGui::PopStyleVar(); // Pop style var
+        
         for (MenuNode* node : root.childrens)
             if (!node->callback && ImGui::BeginMenu(node->name.c_str())) {
                 for (MenuNode* child_node : node->childrens)
@@ -85,8 +99,10 @@ void GuiManager::MenuBar()
                 ImGui::EndMenu();
             }
         
-        ImGui::EndMenuBar();
+        ImGui::EndMainMenuBar();
     }
+    else
+        ImGui::PopStyleVar(); // Pop style var if BeginMainMenuBar returned false
 }
 
 
