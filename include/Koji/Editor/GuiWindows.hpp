@@ -12,13 +12,14 @@ namespace Koji::Editor
         virtual ~GuiWindow() = default;
 
         virtual void Draw() = 0;
+        bool active = true;
     };
 
 
     class GuiDemoWindow : public GuiWindow
     {
     public:
-        void Draw() override { ImGui::ShowDemoWindow(); }
+        void Draw() override { ImGui::ShowDemoWindow(&active); }
     };
     
     class SceneViewWindow : public GuiWindow

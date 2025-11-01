@@ -8,7 +8,7 @@ using namespace Koji::Engine;
 
 void SceneViewWindow::CheckRenderer()
 {
-    if (renderer)
+    if (renderer || !active)
         return;
 
     for (System* sys : Editor::scene->systems)
@@ -24,7 +24,10 @@ void SceneViewWindow::Draw()
 {
     CheckRenderer();
     
-    ImGui::Begin("Scene - 3D View");
+    if (!ImGui::Begin("Scene - 3D View", &active)) {
+        ImGui::End();
+        return;
+    }
 
     // Allow the ImGui window user to request a particular viewport size (or use content region size)
     ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -44,7 +47,7 @@ void SceneViewWindow::Draw()
     }
 
     // Convert from Raylib/OpenGl texture id -> ImGui texture id
-    ImTextureID texId = (ImTextureID)(intptr_t)renderer->render_target.texture.id;
+    auto texId = (ImTextureID)(intptr_t)renderer->render_target.texture.id;
 
     // UV0 and UV1 are flip vertically because raylib target texture are upside down
     ImGui::Image(texId, ImVec2((float)lastTexW, (float)lastTexH), ImVec2(0,1), ImVec2(1,0));

@@ -16,7 +16,8 @@ bool GuiManager::GuiFrame(entt::registry& registry)
     CreateMainDockspace();
 
     for (GuiWindow* win : windows)
-        win->Draw();
+        if (win->active)
+            win->Draw();
     
     return true;
 }
