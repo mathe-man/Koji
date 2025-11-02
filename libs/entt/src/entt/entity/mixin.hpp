@@ -62,10 +62,10 @@ class basic_sigh_mixin final: public Type {
     using sigh_type = sigh<void(owner_type &, const typename underlying_type::entity_type), typename underlying_type::allocator_type>;
     using underlying_iterator = typename underlying_type::base_type::basic_iterator;
 
-    static_assert(std::is_base_of_v<basic_registry_type, owner_type>, "Invalid registry type");
+    static_assert(std::is_base_of_v<basic_registry_type, owner_type>, "Invalid entities type");
 
     [[nodiscard]] auto &owner_or_assert() const noexcept {
-        ENTT_ASSERT(owner != nullptr, "Invalid pointer to registry");
+        ENTT_ASSERT(owner != nullptr, "Invalid pointer to entities");
         return static_cast<owner_type &>(*owner);
     }
 
@@ -399,10 +399,10 @@ class basic_reactive_mixin final: public Type {
     using basic_registry_type = basic_registry<typename owner_type::entity_type, typename owner_type::allocator_type>;
     using container_type = std::vector<connection, typename alloc_traits::template rebind_alloc<connection>>;
 
-    static_assert(std::is_base_of_v<basic_registry_type, owner_type>, "Invalid registry type");
+    static_assert(std::is_base_of_v<basic_registry_type, owner_type>, "Invalid entities type");
 
     [[nodiscard]] auto &owner_or_assert() const noexcept {
-        ENTT_ASSERT(owner != nullptr, "Invalid pointer to registry");
+        ENTT_ASSERT(owner != nullptr, "Invalid pointer to entities");
         return static_cast<owner_type &>(*owner);
     }
 

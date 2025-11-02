@@ -968,7 +968,7 @@ RMAPI Vector3 Vector3Lerp(Vector3 v1, Vector3 v2, float amount)
 }
 
 // Calculate cubic hermite interpolation between two vectors and their tangents
-// as described in the GLTF 2.0 specification: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic
+// as described in the GLTF 2.0 specification: https://entities.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic
 RMAPI Vector3 Vector3CubicHermite(Vector3 v1, Vector3 tangent1, Vector3 v2, Vector3 tangent2, float amount)
 {
     Vector3 result = { 0 };
@@ -2242,7 +2242,7 @@ RMAPI Quaternion QuaternionSlerp(Quaternion q1, Quaternion q2, float amount)
 }
 
 // Calculate quaternion cubic spline interpolation using Cubic Hermite Spline algorithm
-// as described in the GLTF 2.0 specification: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic
+// as described in the GLTF 2.0 specification: https://entities.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic
 RMAPI Quaternion QuaternionCubicHermiteSpline(Quaternion q1, Quaternion outTangent1, Quaternion q2, Quaternion inTangent2, float t)
 {
     float t2 = t*t;

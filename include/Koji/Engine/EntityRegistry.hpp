@@ -7,7 +7,6 @@ namespace Koji::Engine
     class kComponent;
     
     
-    // TODO replace entt registry by this class in the engine
     class EntityRegistry : public entt::registry {
     public:
         using entt::registry::registry;

@@ -18,7 +18,7 @@ bool Editor::Run(Scene* s)
 
     // === Init all systems ===
     for (System* sys : scene->systems)
-        if (!sys->Init(*scene, scene->registry))
+        if (!sys->Init(*scene, scene->entities))
             return false;
     
     // Loop
@@ -26,17 +26,17 @@ bool Editor::Run(Scene* s)
 
         // === Call BeginFrame() on all systems ===
         for (System* sys : scene->systems)
-            if (!sys->BeginFrame(scene->registry))
+            if (!sys->BeginFrame(scene->entities))
                 return false;
         
         // === Call Frame() on all systems ===
         for (System* sys : scene->systems)
-            if (!sys->Frame(scene->registry))
+            if (!sys->Frame(scene->entities))
                 return false;
 
         // === Call BeginFrame() on all systems ===
         for (System* sys : scene->systems)
-            if (!sys->EndFrame(scene->registry))
+            if (!sys->EndFrame(scene->entities))
                 return false;
     }
 

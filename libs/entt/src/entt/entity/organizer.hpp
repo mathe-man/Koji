@@ -177,7 +177,7 @@ class basic_organizer final {
     }
 
 public:
-    /*! Basic registry type. */
+    /*! Basic entities type. */
     using registry_type = Registry;
     /*! @brief Underlying entity identifier. */
     using entity_type = typename registry_type::entity_type;

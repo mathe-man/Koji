@@ -89,7 +89,7 @@ template<typename ILhs, typename IRhs>
 /**
  * @brief Non-owning handle to an entity.
  *
- * Tiny wrapper around a registry and an entity.
+ * Tiny wrapper around a entities and an entity.
  *
  * @tparam Registry Basic registry type.
  * @tparam Scope Types to which to restrict the scope of a handle.
@@ -99,7 +99,7 @@ class basic_handle {
     using traits_type = entt_traits<typename Registry::entity_type>;
 
     [[nodiscard]] auto &owner_or_assert() const noexcept {
-        ENTT_ASSERT(owner != nullptr, "Invalid pointer to registry");
+        ENTT_ASSERT(owner != nullptr, "Invalid pointer to entities");
         return static_cast<Registry &>(*owner);
     }
 

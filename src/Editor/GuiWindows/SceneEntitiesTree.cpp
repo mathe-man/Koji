@@ -10,7 +10,7 @@ void SceneEntitiesTree::Draw()
         return;
     }
 
-    auto view = Editor::scene->registry.view<Components::kMetaData>();
+    auto view = Editor::scene->entities.view<Components::kMetaData>();
 
     
     int selected = -1; 

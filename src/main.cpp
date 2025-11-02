@@ -19,16 +19,16 @@ int main(){
     Scene myScene {
         "Koji Engine - Development",
         WINDOW_WIDTH, WINDOW_HEIGHT,
-        entt::registry(),
+        EntityRegistry(),
         std::vector<System*>()
     };
 
-    auto myEntity = myScene.registry.create();
-    auto myEntityData = myScene.registry.emplace<Components::kMetaData>(myEntity);
+    auto myEntity = myScene.entities.create();
+    auto myEntityData = myScene.entities.AddComponent<Components::kMetaData>(myEntity);
 
     // Change name
     // TOFIX name change don't appear in editor
-    strlcpy(myEntityData.name, "My entity", 128);
+    strlcpy(myEntityData->name, "My entity", 128);
     
     return Editor::Run(&myScene);
 }

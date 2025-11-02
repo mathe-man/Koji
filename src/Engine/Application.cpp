@@ -15,7 +15,7 @@ bool Application::Run(Scene* s) {
     
 
     for (System* sys : scene->systems)
-        if (!sys->Init(*scene, scene->registry))
+        if (!sys->Init(*scene, scene->entities))
             return false;
     
     
@@ -24,15 +24,15 @@ bool Application::Run(Scene* s) {
     while (true) {
 
         for (System* sys : scene->systems)
-            if (!sys->BeginFrame(scene->registry))
+            if (!sys->BeginFrame(scene->entities))
                 return false;
         
         for (System* sys : scene->systems)
-            if (!sys->Frame(scene->registry))
+            if (!sys->Frame(scene->entities))
                 return false;
 
         for (System* sys : scene->systems)
-            if (!sys->EndFrame(scene->registry))
+            if (!sys->EndFrame(scene->entities))
                 return false;
     }
 

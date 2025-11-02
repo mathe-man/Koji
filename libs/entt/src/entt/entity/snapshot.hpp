@@ -36,7 +36,7 @@ void orphans(Registry &registry) {
 /**
  * @brief Utility class to create snapshots from a registry.
  *
- * A _snapshot_ can be either a dump of the entire registry or a narrower
+ * A _snapshot_ can be either a dump of the entire entities or a narrower
  * selection of elements of interest.<br/>
  * This type can be used in both cases if provided with a correctly configured
  * output archive.
@@ -45,11 +45,11 @@ void orphans(Registry &registry) {
  */
 template<typename Registry>
 class basic_snapshot {
-    static_assert(!std::is_const_v<Registry>, "Non-const registry type required");
+    static_assert(!std::is_const_v<Registry>, "Non-const entities type required");
     using traits_type = entt_traits<typename Registry::entity_type>;
 
 public:
-    /*! Basic registry type. */
+    /*! Basic entities type. */
     using registry_type = Registry;
     /*! @brief Underlying entity identifier. */
     using entity_type = typename registry_type::entity_type;
@@ -165,7 +165,7 @@ private:
 /**
  * @brief Utility class to restore a snapshot as a whole.
  *
- * A snapshot loader requires that the destination registry be empty and loads
+ * A snapshot loader requires that the destination entities be empty and loads
  * all the data at once while keeping intact the identifiers that the entities
  * originally had.<br/>
  * An example of use is the implementation of a save/restore utility.
@@ -174,11 +174,11 @@ private:
  */
 template<typename Registry>
 class basic_snapshot_loader {
-    static_assert(!std::is_const_v<Registry>, "Non-const registry type required");
+    static_assert(!std::is_const_v<Registry>, "Non-const entities type required");
     using traits_type = entt_traits<typename Registry::entity_type>;
 
 public:
-    /*! Basic registry type. */
+    /*! Basic entities type. */
     using registry_type = Registry;
     /*! @brief Underlying entity identifier. */
     using entity_type = typename registry_type::entity_type;
@@ -189,7 +189,7 @@ public:
      */
     basic_snapshot_loader(registry_type &source) noexcept
         : reg{&source} {
-        // restoring a snapshot as a whole requires a clean registry
+        // restoring a snapshot as a whole requires a clean entities
         ENTT_ASSERT(reg->template storage<entity_type>().free_list() == 0u, "Registry must be empty");
     }
 
@@ -289,8 +289,8 @@ private:
 /**
  * @brief Utility class for _continuous loading_.
  *
- * A _continuous loader_ is designed to load data from a source registry to a
- * (possibly) non-empty destination. The loader can accommodate in a registry
+ * A _continuous loader_ is designed to load data from a source entities to a
+ * (possibly) non-empty destination. The loader can accommodate in a entities
  * more than one snapshot in a sort of _continuous loading_ that updates the
  * destination one step at a time.<br/>
  * Identifiers that entities originally had are not transferred to the target.
@@ -304,7 +304,7 @@ private:
  */
 template<typename Registry>
 class basic_continuous_loader {
-    static_assert(!std::is_const_v<Registry>, "Non-const registry type required");
+    static_assert(!std::is_const_v<Registry>, "Non-const entities type required");
     using traits_type = entt_traits<typename Registry::entity_type>;
 
     void restore(typename Registry::entity_type entt) {
@@ -363,7 +363,7 @@ class basic_continuous_loader {
     }
 
 public:
-    /*! Basic registry type. */
+    /*! Basic entities type. */
     using registry_type = Registry;
     /*! @brief Underlying entity identifier. */
     using entity_type = typename registry_type::entity_type;
