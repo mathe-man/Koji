@@ -19,13 +19,13 @@ int main(){
     Scene myScene {
         "Koji Engine - Development",
         WINDOW_WIDTH, WINDOW_HEIGHT,
-        entt::registry(),
+        EntityRegistry(),
         std::vector<System*>()
     };
     
-    auto entity = myScene.registry.create();
-    auto* transform = &myScene.registry.emplace<Components::kTransform>(entity);
-    auto* sphere = &myScene.registry.emplace<Components::kSphere>(entity);
+    auto entity = myScene.entities.create();
+    auto* transform = myScene.entities.AddComponent<Components::kTransform>(entity);
+    auto* sphere = myScene.entities.AddComponent<Components::kSphere>(entity);
     sphere->rings = 20;
     sphere->slices = 20;
     return Editor::Run(&myScene);

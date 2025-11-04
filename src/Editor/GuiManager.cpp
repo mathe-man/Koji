@@ -86,11 +86,9 @@ void GuiManager::CreateMainDockspace()
 
 void GuiManager::MenuBar()
 {
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{10, 14});
     
     if (ImGui::BeginMainMenuBar()) {
         
-        ImGui::PopStyleVar(); // Pop style var
         
         for (MenuNode* node : root.childrens)
             if (!node->callback && ImGui::BeginMenu(node->name.c_str())) {
@@ -102,8 +100,6 @@ void GuiManager::MenuBar()
         
         ImGui::EndMainMenuBar();
     }
-    else
-        ImGui::PopStyleVar(); // Pop style var if BeginMainMenuBar returned false
 }
 
 
