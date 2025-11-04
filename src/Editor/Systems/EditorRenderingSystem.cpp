@@ -56,19 +56,11 @@ bool EditorRenderingSystem::BeginFrame(entt::registry& registry)
     // Game view drawing => will be displayed in a ImGui window after
     BeginMode3D(camera);
 
-    DrawSphereWires({0.f, 0.f, 0.f}, 2.0f, 10, 15, RED);
-    DrawCubeWiresV(Vector3{0.f,0.f,0.f}, Vector3{3.f,3.f,3.f}, BLUE);
-    
-    auto view = registry.view<Components::kTransform, Mesh, Material>();
+    auto view = registry.view<Components::kTransform, Components::kSphere>();
     for (auto entity : view) {
-        // TODO add mesh and material components
-        /*
         auto& trans = view.get<Components::kTransform>(entity);
-        auto& trans = view.get<Mesh>(entity);
-        auto& trans = view.get<Material>(entity);
-
-        DrawMes(mesh, trans, mat)
-        */
+        auto& sphere = view.get<Components::kSphere>(entity);
+        DrawSphereWires(trans.position, sphere.radius, sphere.rings, sphere.slices, sphere.color);
     }
 
 

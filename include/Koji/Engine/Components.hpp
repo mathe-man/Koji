@@ -131,5 +131,23 @@ namespace Components
     };
     REGISTER_COMPONENT(kVelocity)
 
+    class kSphere : public kComponent {
+    public:
+        [[nodiscard]] const char* GetName() const override { return "kSphere"; }
+        void Inspect() override {
+            ImGui::DragFloat("Radius", &radius, 0.1, 0);
+            ImGui::DragInt("rings", &rings, 1, 0, 100);
+            ImGui::DragInt("slices", &slices, 1, 0, 100);
+        }
+
+        float radius = 3.0f;
+        int rings = 5;
+        int slices = 5;
+        Color color = VIOLET;
+    };
+
+    REGISTER_COMPONENT(kSphere)
+     
+
 } // namespace Koji::Engine::Components
 } // namespace Koji::Engine
