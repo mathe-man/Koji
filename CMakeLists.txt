@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(Koji LANGUAGES CXX)
+project(KojiEngine LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 # Set variables for this project
@@ -7,6 +7,7 @@ set(KOJI_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(KOJI_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(KOJI_RESOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON) # Generally required to link our external static lib into a shader one
 
 add_subdirectory(libs/raylib)
 add_subdirectory(libs/entt)
@@ -24,17 +25,19 @@ file(GLOB_RECURSE KOJI_CPP_SOURCE_FILES "${KOJI_SOURCE_DIR}/*.cpp")  # .cpp sour
 
 
 # Create executable using headers and source files
-add_executable(Koji
+add_library(KojiEngine SHARED
         ${KOJI_C_HEADER_FILES} ${KOJI_C_SOURCE_FILES}
         ${KOJI_CPP_HEADER_FILES} ${KOJI_CPP_SOURCE_FILES}
         )
 
-target_include_directories(Koji PUBLIC
+target_include_directories(KojiEngine PUBLIC
         include
-)
-target_include_directories(Koji PRIVATE
         libs/entt/src
         libs/raylib/src
         libs/reactphysics3d/include
 )
-target_link_libraries(Koji PRIVATE raylib reactphysics3d)
+target_link_libraries(KojiEngine PRIVATE raylib reactphysics3d)
+
+
+# Generate apps in the app folder
+add_subdirectory(app)

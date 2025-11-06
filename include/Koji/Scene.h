@@ -1,7 +1,6 @@
 #pragma once
 #include <cstdint>
 #include <vector>
-#include <entt/entt.hpp>
 
 #include "EntityRegistry.hpp"
 
