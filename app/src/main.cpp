@@ -15,7 +15,7 @@ int main(){
         "Koji Engine - Development",
         WINDOW_WIDTH, WINDOW_HEIGHT,
         EntityRegistry(),
-        std::vector<System*>()
+        std::vector<System*>() = { new TimeSystem() }
     };
     
     auto entity = myScene.entities.create();
