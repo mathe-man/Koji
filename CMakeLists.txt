@@ -11,7 +11,6 @@ set(KOJI_RESOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 add_subdirectory(libs/raylib)
 add_subdirectory(libs/entt)
 add_subdirectory(libs/reactphysics3d)
-add_subdirectory(libs/rlImGui)
 
 
 #   Add all files from the source directory
@@ -37,7 +36,5 @@ target_include_directories(Koji PRIVATE
         libs/entt/src
         libs/raylib/src
         libs/reactphysics3d/include
-        libs/ImGui
-        libs/rlImGui
 )
-target_link_libraries(Koji PRIVATE raylib reactphysics3d rlImGui)
+target_link_libraries(Koji PRIVATE raylib reactphysics3d)

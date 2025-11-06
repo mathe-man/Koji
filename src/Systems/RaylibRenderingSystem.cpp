@@ -1,10 +1,8 @@
-#include <Koji/Engine/Scene.h>
-#include <Koji/Engine/Systems.hpp>
-#include "Koji/Engine/Components.hpp"
+#include <Koji/Scene.h>
+#include <Koji/Systems.hpp>
+#include <Koji/Components.hpp>
 
 #include <raylib.h>
-#include "imgui.h"
-#include "rlImGui.h"
 
 using namespace Koji::Engine;
 using namespace Koji::Engine::Components;
@@ -39,13 +37,11 @@ bool RaylibRenderingSystem::BeginFrame(entt::registry &registry)
 
     BeginMode3D(camera);
     
-    auto view = registry.view<kTransform, Mesh, Material>();
+    auto view = registry.view<kTransform, kSphere>();
     for (auto entity : view) {
         auto& trans = view.get<kTransform>(entity);
-        auto& mesh = view.get<Mesh>(entity);
-        auto& mat = view.get<Material>(entity);
-
-        //DrawMesh(mesh, trans, mat);
+        auto& sphere = view.get<kSphere>(entity);
+        DrawSphereWires(trans.position, sphere.radius, sphere.rings, sphere.slices, sphere.color);
     }
 
     EndMode3D(); // 3D mode need to be ended before starting to use ImGui

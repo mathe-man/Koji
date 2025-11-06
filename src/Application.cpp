@@ -1,6 +1,6 @@
-#include <Koji/Engine/Scene.h>
-#include <Koji/Engine/Application.hpp>
-#include "Koji/Engine/Systems.hpp"
+#include <Koji/Scene.h>
+#include <Koji/Application.hpp>
+#include <Koji/Systems.hpp>
 
 
 using namespace Koji::Engine;
