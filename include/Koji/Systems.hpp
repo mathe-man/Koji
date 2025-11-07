@@ -2,7 +2,6 @@
 #include <chrono>
 #include <cstdint>
 #include <raylib.h>
-#include <entt/entt.hpp>
 
 
 namespace Koji::Engine
@@ -18,11 +17,11 @@ class System
         virtual ~System() = default;
 
         [[nodiscard]] virtual const char* GetName() const    = 0;
-        virtual bool Init(const Scene& scene, entt::registry& registry) = 0;
+        virtual bool Init(const Scene& scene) = 0;
 
-        virtual bool Frame      (entt::registry &registry)   = 0;
-        virtual bool BeginFrame (entt::registry &registry)   = 0;
-        virtual bool EndFrame   (entt::registry &registry)   = 0;
+        virtual bool Frame      ()   = 0;
+        virtual bool BeginFrame ()   = 0;
+        virtual bool EndFrame   ()   = 0;
 
         virtual bool Close() = 0;
 };
@@ -35,11 +34,11 @@ class RaylibRenderingSystem : public System
         ~RaylibRenderingSystem() override = default;
 
         [[nodiscard]] const char* GetName() const override { return "Raylib Rendering System"; }
-        bool Init(const Scene& scene, entt::registry& registry) override;
+        bool Init(const Scene& scene) override;
 
-        bool Frame      (entt::registry &registry)   override { return true; }
-        bool BeginFrame (entt::registry &registry)   override;
-        bool EndFrame   (entt::registry &registry)   override { return true; }
+        bool Frame      ()   override { return true; }
+        bool BeginFrame ()   override;
+        bool EndFrame   ()   override { return true; }
 
         bool Close() override;
 
@@ -61,13 +60,13 @@ class TimeSystem : public System
         ~TimeSystem() override = default;
 
         [[nodiscard]] const char* GetName() const override { return "Time System"; }
-        bool Init(const Scene& scene, entt::registry& registry) override {
+        bool Init(const Scene& scene) override {
             start_time = clock::now();
             return true;
         }
 
-        bool Frame      (entt::registry &registry)   override { return true; }
-        bool BeginFrame (entt::registry &registry)   override {
+        bool Frame      ()   override { return true; }
+        bool BeginFrame ()   override {
             auto now = clock::now();
             std::chrono::duration<float> delta = now - last_frame;
             deltaTime = delta.count();
@@ -78,7 +77,7 @@ class TimeSystem : public System
             
             return true;
         }
-        bool EndFrame   (entt::registry &registry)   override { return true; }
+        bool EndFrame   ()   override { return true; }
     
         bool Close() override { return true; }
 

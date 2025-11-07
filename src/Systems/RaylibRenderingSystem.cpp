@@ -1,20 +1,22 @@
 #include <Koji/Scene.h>
 #include <Koji/Systems.hpp>
-#include <Koji/Components.hpp>
+#include <Koji/ECS/Components/Sphere.h>
 
 #include <raylib.h>
 
+#include "Koji/Application.h"
+#include "Koji/ECS/Chunck.h"
+
 using namespace Koji::Engine;
-using namespace Koji::Engine::Components;
 
 
 
 
-bool RaylibRenderingSystem::Init(const Scene& scene, entt::registry& registry)
+bool RaylibRenderingSystem::Init(const Scene& scene)
 {
     // Raylib setup
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
-    InitWindow(scene.window_width, scene.window_height, scene.name);
+    InitWindow(1280, 720, scene.name.c_str());
     SetTargetFPS(60);
 
     
@@ -27,7 +29,7 @@ bool RaylibRenderingSystem::Init(const Scene& scene, entt::registry& registry)
     return true;
 }
 
-bool RaylibRenderingSystem::BeginFrame(entt::registry &registry)
+bool RaylibRenderingSystem::BeginFrame()
 {
     if (WindowShouldClose())
         return false;
@@ -37,12 +39,28 @@ bool RaylibRenderingSystem::BeginFrame(entt::registry &registry)
 
     BeginMode3D(camera);
     
-    auto view = registry.view<kTransform, kSphere>();
-    for (auto entity : view) {
-        auto& trans = view.get<kTransform>(entity);
-        auto& sphere = view.get<kSphere>(entity);
-        DrawSphereWires(trans.position, sphere.radius, sphere.rings, sphere.slices, sphere.color);
-    }
+    
+    auto archetypes = Application::scene->world.Query({kTransform::TypeId, MetaData::TypeId});
+    
+    for (auto archetype : archetypes)
+        for (auto chunk : archetype->chunks)
+            for (size_t i = 0; i < chunk->count; ++i)
+            {
+                // Get the array of each component
+                auto* t = static_cast<kTransform*>(
+                    chunk->GetComponentArray(kComponent<kTransform>::TypeId)
+                );
+                auto* s = static_cast<kSphere*>(
+                    chunk->GetComponentArray(kComponent<kSphere>::TypeId)
+                );
+                
+                // Get the component for the number i entity
+                kTransform& trans = t[i];
+                kSphere& sphere = s[i];
+                
+                // Do stuff with infos
+            }
+    
 
     EndMode3D(); // 3D mode need to be ended before starting to use ImGui
     EndDrawing();

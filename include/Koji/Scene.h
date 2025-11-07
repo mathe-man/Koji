@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "EntityRegistry.hpp"
+#include "ECS/World.h"
 
 namespace Koji::Engine {
 
@@ -11,10 +11,8 @@ namespace Koji::Engine {
     
     struct Scene
     {
-        const char* name;
-        uint16_t window_width;
-        uint16_t window_height;
-        EntityRegistry entities;
+        std::string name;
+        World world;
         std::vector<System*> systems;
     };
     

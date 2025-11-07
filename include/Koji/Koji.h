@@ -1,11 +1,10 @@
 #pragma once
 
-#include <Koji/Application.hpp>
+#include <Koji/Application.h>
 #include <Koji/Scene.h>
 
-#include <Koji/EntityRegistry.hpp>
+#include <Koji/ECS/ECS.h>
 
 #include <Koji/Systems.hpp>
-#include <Koji/Components.hpp>
 
 #include <Koji/Time.h>

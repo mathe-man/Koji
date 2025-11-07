@@ -1,5 +1,5 @@
 #include <Koji/Scene.h>
-#include <Koji/Application.hpp>
+#include <Koji/Application.h>
 #include <Koji/Systems.hpp>
 
 
@@ -15,7 +15,7 @@ bool Application::Run(Scene* s) {
     
 
     for (System* sys : scene->systems)
-        if (!sys->Init(*scene, scene->entities))
+        if (!sys->Init(*scene))
             return false;
     
     
@@ -24,15 +24,15 @@ bool Application::Run(Scene* s) {
     while (true) {
 
         for (System* sys : scene->systems)
-            if (!sys->BeginFrame(scene->entities))
+            if (!sys->BeginFrame())
                 return false;
         
         for (System* sys : scene->systems)
-            if (!sys->Frame(scene->entities))
+            if (!sys->Frame())
                 return false;
 
         for (System* sys : scene->systems)
-            if (!sys->EndFrame(scene->entities))
+            if (!sys->EndFrame())
                 return false;
     }
 
