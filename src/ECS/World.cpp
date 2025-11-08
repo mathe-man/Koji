@@ -2,6 +2,10 @@
 
 #include <algorithm>
 
+#include "Koji/ECS/Components/Transform.h"
+
+using namespace Koji::ECS;
+
 Entity World::CreateEntity(const std::string& name) {
     Entity e = entities.Create();
 

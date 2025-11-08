@@ -1,6 +1,8 @@
 #include "Koji/ECS/Chunck.h"
 #include <cstdlib>
 
+using namespace Koji::ECS;
+
 void Chunk::Initialize(const std::vector<size_t>& componentIds) {
     size_t totalSize = 0;
     for (auto id : componentIds)

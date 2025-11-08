@@ -4,38 +4,41 @@
 
 #include "Chunck.h"
 
-struct Entity;
-struct Chunk;
+namespace Koji::ECS
+{
+    struct Entity;
+    struct Chunk;
 
-struct Archetype {
-    std::vector<size_t> componentIds;
-    std::vector<Chunk*> chunks;
+    struct Archetype {
+        std::vector<size_t> componentIds;
+        std::vector<Chunk*> chunks;
 
-    [[nodiscard]] bool Matches(const std::vector<size_t>& ids) const;
-    Chunk* GetAvailableChunk();
-    void AddEntity(const std::unordered_map<size_t, void*>& componentData);
+        [[nodiscard]] bool Matches(const std::vector<size_t>& ids) const;
+        Chunk* GetAvailableChunk();
+        void AddEntity(const std::unordered_map<size_t, void*>& componentData);
     
-    [[nodiscard]] bool ContainsEntity(Entity e) const {
-        for (auto* chunk : chunks)
-            if (chunk->ContainsEntity(e))
-                return true;
-        return false;
-    }
-    [[nodiscard]] void* GetComponentData(Entity e, size_t componentId) const
-    {
-        for (auto* chunk : chunks) {
-            if (chunk->ContainsEntity(e))
-                return chunk->GetComponentData(e, componentId);
+        [[nodiscard]] bool ContainsEntity(Entity e) const {
+            for (auto* chunk : chunks)
+                if (chunk->ContainsEntity(e))
+                    return true;
+            return false;
         }
-        return nullptr;
-    }
-    void RemoveEntity(Entity e) {
-        for (auto* chunk : chunks) {
-            if (chunk->ContainsEntity(e)) {
-                chunk->RemoveEntity(e);
-                break;
+        [[nodiscard]] void* GetComponentData(Entity e, size_t componentId) const
+        {
+            for (auto* chunk : chunks) {
+                if (chunk->ContainsEntity(e))
+                    return chunk->GetComponentData(e, componentId);
+            }
+            return nullptr;
+        }
+        void RemoveEntity(Entity e) {
+            for (auto* chunk : chunks) {
+                if (chunk->ContainsEntity(e)) {
+                    chunk->RemoveEntity(e);
+                    break;
+                }
             }
         }
-    }
 
-};
+    };
+}

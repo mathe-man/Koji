@@ -5,11 +5,12 @@
 #include "ECS/System.h"
 #include "ECS/World.h"
 
-class World;
-
-struct Scene
+namespace Koji
 {
-    std::string name;
-    World world;
-    std::vector<System*> systems;
-};
+    struct Scene
+    {
+        std::string name;
+        ECS::World world;
+        std::vector<ECS::System*> systems;
+    };
+}

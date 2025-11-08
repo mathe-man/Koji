@@ -1,4 +1,7 @@
 #include "Koji/ECS/EntityManager.h"
+#include "Koji/ECS/Entity.h"
+
+using namespace Koji::ECS;
 
 Entity EntityManager::Create() {
     uint32_t id;
@@ -11,6 +14,6 @@ Entity EntityManager::Create() {
     return { id, 1 };
 }
 
-void EntityManager::Destroy(Entity e) {
+void EntityManager::Destroy(ECS::Entity e) {
     freeIds.push(e.id);
 }

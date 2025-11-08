@@ -1,11 +1,15 @@
 #pragma once
 
-struct Scene;
+namespace Koji
+{
+    struct Scene;
 
 
-class Application {
-public:
-    static bool Run(Scene* scene);
+    class Application
+    {
+    public:
+        static bool Run(Scene* scene);
 
-    static Scene* scene;
-};
+        static Scene* scene;
+    };
+}

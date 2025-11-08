@@ -1,13 +1,15 @@
 #pragma once
-#include <vector>
 #include <queue>
 #include "Entity.h"
 
-class EntityManager {
-    std::queue<uint32_t> freeIds;
-    uint32_t nextId = 0;
+namespace Koji::ECS
+{
+    class EntityManager {
+        std::queue<uint32_t> freeIds;
+        uint32_t nextId = 0;
 
-public:
-    Entity Create();
-    void Destroy(Entity e);
-};
+    public:
+        Entity Create();
+        void Destroy(Entity e);
+    };
+}

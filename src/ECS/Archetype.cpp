@@ -2,6 +2,7 @@
 #include "Koji/ECS/Chunck.h"
 #include <algorithm>
 
+using namespace Koji::ECS;
 
 bool Archetype::Matches(const std::vector<size_t>& ids) const {
     if (ids.size() != componentIds.size()) return false;
