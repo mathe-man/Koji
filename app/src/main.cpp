@@ -1,6 +1,8 @@
 #include <iostream>
 #include <Koji/Koji.h>
 
+#include "Koji/ECS/Systems/Time.h"
+
 
 using namespace Koji::Engine;
 

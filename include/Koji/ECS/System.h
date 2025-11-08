@@ -2,8 +2,13 @@
 #include <vector>
 #include "World.h"
 
-class System {
-public:
-    virtual ~System() = default;
-    virtual void Update() = 0;
-};
+namespace Koji::Engine
+{
+    class System {
+    public:
+        virtual ~System() = default;
+        virtual bool Init()     { return true; }
+        virtual bool Update()   { return true; }
+        virtual bool Close()   { return true; }
+    };
+}

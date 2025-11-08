@@ -2,12 +2,10 @@
 #include <cstdint>
 #include <vector>
 
+#include  "ECS/System.h"
 #include "ECS/World.h"
 
 namespace Koji::Engine {
-
-    // Forward declaration
-    class System;
     
     struct Scene
     {

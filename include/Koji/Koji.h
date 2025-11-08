@@ -5,6 +5,3 @@
 
 #include <Koji/ECS/ECS.h>
 
-#include <Koji/Systems.hpp>
-
-#include <Koji/Time.h>
