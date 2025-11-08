@@ -1,5 +1,5 @@
 #include "Koji/ECS/Archetype.h"
-#include "Koji/ECS/Chunck.h"
+#include "Koji/ECS/Chunk.h"
 #include <algorithm>
 
 using namespace Koji::ECS;

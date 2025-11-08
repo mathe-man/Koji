@@ -76,3 +76,72 @@ std::vector<Archetype*> World::Query(const std::vector<size_t>& componentIds) {
             result.push_back(a);
     return result;
 }
+
+
+template<typename... ComponentTypes>
+void World::ForComponents(std::function<void(ComponentTypes&...)> callback) {
+    
+    std::vector<size_t> componentIds = { kComponent<ComponentTypes>::TypeId... };
+    auto matchingArchetypes = Query(componentIds);
+    
+    // Check if we have a result
+    if (matchingArchetypes.empty())
+        return;
+    
+    
+    for (auto* archetype : matchingArchetypes) {
+        for (auto* chunk : archetype->chunks) {
+            // Check if the chunk is not empty
+            if (chunk->count == 0) continue;
+            
+            // Retrieve arrays of components
+            std::tuple<ComponentTypes*...> componentArrays = {
+                static_cast<ComponentTypes*>(chunk->GetComponentArray(kComponent<ComponentTypes>::TypeId))...
+            };
+            
+            // Check that all arrays are good
+            bool allArraysValid = (... && (std::get<ComponentTypes*>(componentArrays) != nullptr));
+            if (!allArraysValid) continue;
+            
+            // Iterate over the arrays
+            for (size_t i = 0; i < chunk->count; i++)
+                callback((*std::get<ComponentTypes*>(componentArrays))[i]...);
+        }
+    }
+}
+
+template<typename... ComponentTypes>
+void World::ForEntitiesWithComponents(std::function<void(Entity, ComponentTypes&...)> callback) {
+    
+    std::vector<size_t> componentIds = { kComponent<ComponentTypes>::TypeId... };
+    auto matchingArchetypes = Query(componentIds);
+    
+    // Check if we have a result
+    if (matchingArchetypes.empty())
+        return;
+    
+    
+    for (auto* archetype : matchingArchetypes) {
+        for (auto* chunk : archetype->chunks)
+        {
+            // Check if the chunk is not empty
+            if (chunk->count == 0) continue;
+            
+            // Retrieve arrays of components
+            std::tuple<ComponentTypes*...> componentArrays = {
+                static_cast<ComponentTypes*>(chunk->GetComponentArray(kComponent<ComponentTypes>::TypeId))...
+            };
+            
+            // Check that all arrays are good
+            bool allArraysValid = (... && (std::get<ComponentTypes*>(componentArrays) != nullptr));
+            if (!allArraysValid) continue;
+            
+            // Iterate over the arrays
+            for (size_t i = 0; i < chunk->count; i++) {
+                Entity entity = chunk->entities[i];
+                callback(entity, (*std::get<ComponentTypes*>(componentArrays))[i]...);
+            }
+        }
+    }
+}
+
