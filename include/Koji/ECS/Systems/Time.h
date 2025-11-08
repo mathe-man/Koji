@@ -4,7 +4,7 @@
 
 // TODO add a scoped timer (trigger function when the scope exit)
 // TODO add a delay timer (trigger function when the delay is reached)
-class TimeSystem : public Koji::Engine::System
+class TimeSystem : public System
 {
     using clock = std::chrono::high_resolution_clock;
     

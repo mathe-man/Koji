@@ -1,10 +1,11 @@
 #pragma once
-#include <cstdint>
+#include <string>
 #include <vector>
 
-#include  "ECS/System.h"
+#include "ECS/System.h"
 #include "ECS/World.h"
 
+class World;
 
 struct Scene
 {

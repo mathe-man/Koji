@@ -1,27 +1,22 @@
-#include <iostream>
 #include <Koji/Koji.h>
 
-#include "Koji/ECS/Systems/Time.h"
-
-
-using namespace Koji::Engine;
 
 
 
 int main(){
 
-    Scene myScene {
+    Koji::Scene myScene {
         "Koji Engine - Development",
-        World(),
-        { new TimeSystem() }
+        Koji::World(),
+        { new Koji::ECS::TimeSystem() }
     };
     
     auto e = myScene.world.CreateEntity("My Sphere");
+
+    Koji::ECS::kSphere sphere {3.0f, 15, 10};
+    myScene.world.AddComponent(e, Koji::ECS::kSphere::TypeId, &sphere);
     
-    kSphere sphere {3.0f, 15, 10};
-    myScene.world.AddComponent(e, kSphere::TypeId, &sphere);
     
     
-    
-    return Application::Run(&myScene);
+    return Koji::Application::Run(&myScene);
 }

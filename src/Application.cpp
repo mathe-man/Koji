@@ -3,7 +3,6 @@
 #include <Koji/Application.h>
 
 
-using namespace Koji::Engine;
 
 Scene* Application::scene {};  // Static member need to be declared
 
