@@ -9,7 +9,7 @@
 #include "EntityManager.h"
 
 #include "Archetype.h"
-#include "Chunck.h"
+#include "Chunk.h"
 
 
 // Components

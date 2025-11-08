@@ -2,7 +2,7 @@
 #include <vector>
 #include <unordered_map>
 
-#include "Chunck.h"
+#include "Chunk.h"
 
 namespace Koji::ECS
 {
