@@ -38,6 +38,12 @@ namespace Koji::ECS
             auto& col = columns[componentId];
             return static_cast<void*>(static_cast<char*>(col.data) + index * col.componentSize);
         }
+        
+        template<typename T>
+        T* GetComponent(Entity e) {
+            void* data = GetComponentData(e, kComponent<T>::TypeId);
+            return static_cast<T*>(data);
+        }
 
         void RemoveEntity(Entity e) {
             auto it = std::find(entities.begin(), entities.end(), e);
