@@ -11,6 +11,5 @@ namespace Koji
     {
         std::string name;
         ECS::World world;
-        std::vector<ECS::System*> systems;
     };
 }
