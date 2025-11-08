@@ -4,12 +4,12 @@
 
 using namespace Koji::ECS;
 
-bool Archetype::Matches(const std::vector<size_t>& ids) const {
-    if (ids.size() != componentIds.size()) return false;
-    for (auto id : ids)
-        if (std::find(componentIds.begin(), componentIds.end(), id) == componentIds.end())
-            return false;
-    return true;
+bool Archetype::Matches(const std::vector<size_t>& requiredIds) const {
+    for (auto requiredId : requiredIds) {
+        if (std::find(componentIds.begin(), componentIds.end(), requiredId) == componentIds.end())
+            return false;  // A component isn't present
+    }
+    return true;  // Every required component are present 
 }
 
 Chunk* Archetype::GetAvailableChunk() {
