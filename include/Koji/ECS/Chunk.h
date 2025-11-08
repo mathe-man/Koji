@@ -59,5 +59,11 @@ namespace Koji::ECS
             entities.pop_back();
             count--;
         }
+        
+        ~Chunk() {
+            for (auto& [id, col] : columns) {
+                std::free(col.data);
+            }
+        }
     };
 }
