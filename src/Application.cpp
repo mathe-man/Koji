@@ -9,27 +9,20 @@ Scene* Application::scene {};  // Static member need to be declared
 bool Application::Run(Scene* s) {
     // Set the static member
     scene = s;
+    if (!scene) return false;
 
-    for (ECS::System* sys : scene->systems)
-        if (!sys->Init())
-            return false;
-    
-    
+    if (!scene->Load())
+        return false;
     
     // Loop
     while (true) {
-
-        
-        for (ECS::System* sys : scene->systems)
-            if (!sys->Update())
-                return false;
+        if (!scene->Update())
+            break;
     }
 
     // Shutdown
-    for (ECS::System*  sys : scene->systems)
-        if (!sys->Close())
-            return false;
-
+    if (!scene->Unload())
+        return false;
     
     return true;
 }

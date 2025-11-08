@@ -15,12 +15,11 @@ namespace Koji::ECS
     {
         std::vector<Archetype*> archetypes;
         EntityManager entities;
-        std::vector<std::unique_ptr<System>> systems;
-        bool isRunning = false;
 
     public:
         Entity CreateEntity(const std::string& name);
         void AddComponent(Entity e, size_t componentId, void* data);
+        void RemoveComponent(Entity e, size_t componentId);
         std::vector<Archetype*> Query(const std::vector<size_t>& componentIds);
         
         template<typename... ComponentTypes>
@@ -28,16 +27,8 @@ namespace Koji::ECS
     
         template<typename... ComponentTypes>
         void ForEntitiesWithComponents(std::function<void(Entity, ComponentTypes&...)> callback);
-        
-        template<typename T, typename... Args>
-        T* AddSystem(Args&&... args);
-        
-        template<typename T>
-        T* GetSystem();
-        
-        // World loop
-        void Start();
-        void Update();
-        void Stop();
+    
+        size_t GetEntityCount() const;
+        size_t GetArchetypeCount() const;
     };
 }

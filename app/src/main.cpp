@@ -5,16 +5,12 @@ using namespace Koji::ECS;
 
 int main(){
 
-    Koji::Scene myScene {
-        "Koji Engine - Development",
-        World(),
-        { new TimeSystem() }
-    };
+    Koji::Scene myScene("My Koji Scene");
     
-    auto e = myScene.world.CreateEntity("My Sphere");
+    auto e = myScene.GetWorld()->CreateEntity("My entity");
 
     kSphere sphere {3.0f, 15, 10};
-    myScene.world.AddComponent(e, kSphere::TypeId, &sphere);
+    myScene.GetWorld()->AddComponent(e, kSphere::TypeId, &sphere);
     
     
     
