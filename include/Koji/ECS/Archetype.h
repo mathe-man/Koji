@@ -11,17 +11,18 @@ struct Archetype {
     std::vector<size_t> componentIds;
     std::vector<Chunk*> chunks;
 
-    bool Matches(const std::vector<size_t>& ids) const;
+    [[nodiscard]] bool Matches(const std::vector<size_t>& ids) const;
     Chunk* GetAvailableChunk();
     void AddEntity(const std::unordered_map<size_t, void*>& componentData);
     
-    bool ContainsEntity(Entity e) const {
+    [[nodiscard]] bool ContainsEntity(Entity e) const {
         for (auto* chunk : chunks)
             if (chunk->ContainsEntity(e))
                 return true;
         return false;
     }
-    void* GetComponentData(Entity e, size_t componentId) {
+    [[nodiscard]] void* GetComponentData(Entity e, size_t componentId) const
+    {
         for (auto* chunk : chunks) {
             if (chunk->ContainsEntity(e))
                 return chunk->GetComponentData(e, componentId);
