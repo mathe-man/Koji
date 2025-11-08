@@ -24,52 +24,21 @@ namespace Koji::ECS
 
         void Initialize(const std::vector<size_t>& componentIds);
         void* GetComponentArray(size_t componentId);
-        void AddEntity(const std::unordered_map<size_t, void*>& componentData);
-
-        bool ContainsEntity(Entity e) const {
-            return std::find(entities.begin(), entities.end(), e) != entities.end();
-        }
-
-        void* GetComponentData(Entity e, size_t componentId) {
-            auto it = std::find(entities.begin(), entities.end(), e);
-            if (it == entities.end()) return nullptr;
-            size_t index = std::distance(entities.begin(), it);
-
-            auto& col = columns[componentId];
-            return static_cast<void*>(static_cast<char*>(col.data) + index * col.componentSize);
-        }
         
+        void AddEntity(const std::unordered_map<size_t, void*>& componentData);
+        bool ContainsEntity(Entity e) const;
+        void RemoveEntity(Entity e);
+
+        void* GetComponentData(Entity e, size_t componentId);
         template<typename T>
         T* GetComponent(Entity e) {
             void* data = GetComponentData(e, kComponent<T>::TypeId);
             return static_cast<T*>(data);
         }
 
-        void RemoveEntity(Entity e) {
-            auto it = std::find(entities.begin(), entities.end(), e);
-            if (it == entities.end()) return;
-
-            size_t index = std::distance(entities.begin(), it);
-            size_t last = entities.size() - 1;
-
-            // swap last entity into the removed slot
-            entities[index] = entities[last];
-
-            for (auto& [id, col] : columns) {
-                char* dataPtr = static_cast<char*>(col.data);
-                std::memcpy(dataPtr + index * col.componentSize,
-                            dataPtr + last * col.componentSize,
-                            col.componentSize);
-            }
-
-            entities.pop_back();
-            count--;
-        }
-        
         ~Chunk() {
-            for (auto& [id, col] : columns) {
+            for (auto& [id, col] : columns)
                 std::free(col.data);
-            }
         }
     };
 }
