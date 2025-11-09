@@ -49,8 +49,8 @@ bool Scene::Load() {
     
     for (auto& system : systems)
         if (!system->Init()) 
-            return true;
-    return false;
+            return false;
+    return true;
 }
 
 bool Scene::Update() {
