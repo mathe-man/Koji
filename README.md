@@ -6,7 +6,8 @@ A 3d game engine using an ECS
 > Those aren't definitive choices
 
  - **Rendering / Graphics**
-   - [bgfx](https://github.com/bkaradzic/bgfx): Graphics abstraction
+   - [glfw](https://github.com/glfw/glfw): Window creator
+   - [bgfx](https://github.com/bkaradzic/bgfx) ([website](https://www.glfw.org)): Graphics abstraction
 
  - **Physics**
    - [ReactPhysics3D](https://github.com/DanielChappuis/reactphysics3d) ([website](https://www.reactphysics3d.com/download.html)): Rigid bodies, colliders, etc.

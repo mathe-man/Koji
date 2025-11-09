@@ -11,6 +11,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON) # Generally required to link our externa
 
 add_subdirectory(libs/bgfx.cmake)
 add_subdirectory(libs/reactphysics3d)
+add_subdirectory(libs/glfw)
 
 # Set assimp parameters
 set(ASSIMP_BUILD_TESTS OFF)
@@ -44,6 +45,7 @@ target_include_directories(KojiEngine PUBLIC
         libs/bgfx.cmake/bgfx/include
         libs/bgfx.cmake/bimg/include
         libs/bgfx.cmake/bx/include
+        libs/glfw/include
         libs/reactphysics3d/include
         libs/assimp/include
 )
