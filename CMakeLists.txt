@@ -9,8 +9,18 @@ set(KOJI_RESOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # Generally required to link our external static lib into a shader one
 
-add_subdirectory(libs/raylib)
+add_subdirectory(libs/bgfx.cmake)
 add_subdirectory(libs/reactphysics3d)
+
+# Set assimp parameters
+set(ASSIMP_BUILD_TESTS OFF)
+set(ASSIMP_BUILD_ZLIB ON)
+set(ASSIMP_BUILD_SAMPLES OFF)
+set(ASSIMP_NO_EXPORT ON)
+set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF)
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT ON)
+
+add_subdirectory(libs/assimp)
 
 
 #   Add all files from the source directory
@@ -31,10 +41,13 @@ add_library(KojiEngine SHARED
 
 target_include_directories(KojiEngine PUBLIC
         include
-        libs/raylib/src
+        libs/bgfx.cmake/bgfx/include
+        libs/bgfx.cmake/bimg/include
+        libs/bgfx.cmake/bx/include
         libs/reactphysics3d/include
+        libs/assimp/include
 )
-target_link_libraries(KojiEngine PRIVATE raylib reactphysics3d)
+target_link_libraries(KojiEngine PRIVATE bgfx reactphysics3d assimp)
 
 
 # Generate apps in the app folder
