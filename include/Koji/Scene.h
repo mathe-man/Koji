@@ -25,11 +25,42 @@ namespace Koji
         
         // Systems management
         template<typename T, typename... Args>
-        T* AddSystem(Args&&... args);
+        T* AddSystem(Args&&... args){
+            static_assert(std::is_base_of_v<ECS::System, T>, "T must derive from System");
+    
+            auto system = std::make_unique<T>(std::forward<Args>(args)...);
+            T* ptr = system.get();
+            systems.push_back(std::move(system));
+            return ptr;
+        }
         template<typename T>
-        T* GetSystem();
+        T* GetSystem(){
+            for (auto& system : systems) {
+                if (auto* casted = dynamic_cast<T*>(system.get())) {
+                    return casted;
+                }
+            }
+            return nullptr;
+        }
         template<typename T>
-        bool RemoveSystem();
+        bool RemoveSystem(){
+            static_assert(std::is_base_of_v<ECS::System, T>, "T must derive from System");
+    
+            auto it = std::find_if(systems.begin(), systems.end(),
+                [](const std::unique_ptr<ECS::System>& system) {
+                    return dynamic_cast<T*>(system.get()) != nullptr;
+                });
+    
+            if (it != systems.end()) {
+                // Call Close() to clean
+                (*it)->Close();
+        
+                systems.erase(it);
+        
+                return true;
+            }
+            return false;
+        }
         
         bool Load();
         bool Unload();

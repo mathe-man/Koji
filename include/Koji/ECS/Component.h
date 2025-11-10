@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 #include <typeinfo>
+#include <unordered_map>
+
 namespace Koji::ECS
 {
     class ComponentRegistry {
