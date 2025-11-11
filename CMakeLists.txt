@@ -7,9 +7,8 @@ set(KOJI_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(KOJI_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(KOJI_RESOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON) # Generally required to link our external static lib into a shader one
+set(CMAKE_POSITION_INDEPENDENT_CODE ON) # Generally required to link our external static lib into a other one
 
-add_subdirectory(libs/bgfx.cmake)
 add_subdirectory(libs/reactphysics3d)
 
 set(GLFW_BUILD_DOCS OFF)
@@ -48,9 +47,6 @@ add_library(KojiEngine SHARED
 
 target_include_directories(KojiEngine PUBLIC
         include
-        libs/bgfx.cmake/bgfx/include
-        libs/bgfx.cmake/bimg/include
-        libs/bgfx.cmake/bx/include
         libs/glfw/include
         libs/glm
         libs/glad/include
@@ -58,7 +54,6 @@ target_include_directories(KojiEngine PUBLIC
         libs/assimp/include
 )
 target_link_libraries(KojiEngine PRIVATE 
-        bgfx bx bimg bimg_decode
         reactphysics3d 
         assimp
         glfw glm glad
