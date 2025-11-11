@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(KojiEngine LANGUAGES CXX)
+project(KojiEngine LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 # Set variables for this project
@@ -14,6 +14,8 @@ add_subdirectory(libs/reactphysics3d)
 
 set(GLFW_BUILD_DOCS OFF)
 add_subdirectory(libs/glfw)
+add_subdirectory(libs/glm)
+add_subdirectory(libs/glad)
 
 # Set assimp parameters
 set(ASSIMP_BUILD_TESTS OFF)
@@ -24,6 +26,8 @@ set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF)
 set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT ON)
 
 add_subdirectory(libs/assimp)
+
+
 
 
 #   Add all files from the source directory
@@ -48,6 +52,8 @@ target_include_directories(KojiEngine PUBLIC
         libs/bgfx.cmake/bimg/include
         libs/bgfx.cmake/bx/include
         libs/glfw/include
+        libs/glm
+        libs/glad/include
         libs/reactphysics3d/include
         libs/assimp/include
 )
@@ -55,7 +61,7 @@ target_link_libraries(KojiEngine PRIVATE
         bgfx bx bimg bimg_decode
         reactphysics3d 
         assimp
-        glfw
+        glfw glm glad
 )
 
 

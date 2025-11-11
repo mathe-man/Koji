@@ -15,7 +15,6 @@
 // Components
 #include "Components/MetaData.h"
 #include "Components/Transform.h"
-#include "Components/Sphere.h"
 
 // Systems
 #include "Systems/Time.h"

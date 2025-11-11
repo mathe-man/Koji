@@ -12,9 +12,9 @@ Entity World::CreateEntity(const std::string& name) {
     Entity e = entities.Create();
 
     MetaData meta(name, 0, true);
-    kTransform t({0,0,0}, {0,0,0}, {1,1,1});
+    Transform t;
 
-    std::vector<size_t> ids = { kComponent<MetaData>::TypeId, kComponent<kTransform>::TypeId };
+    std::vector<size_t> ids = { kComponent<MetaData>::TypeId, kComponent<Transform>::TypeId };
 
     Archetype* target = nullptr;
     for (auto* a : archetypes)
@@ -28,7 +28,7 @@ Entity World::CreateEntity(const std::string& name) {
 
     std::unordered_map<size_t, void*> data {
             { kComponent<MetaData>::TypeId, &meta },
-            { kComponent<kTransform>::TypeId, &t }
+            { kComponent<Transform>::TypeId, &t }
     };
 
     target->AddEntity(data);

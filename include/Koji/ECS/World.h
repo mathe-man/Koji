@@ -22,21 +22,22 @@ namespace Koji::ECS
         void RemoveComponent(Entity e, size_t componentId);
         std::vector<Archetype*> Query(const std::vector<size_t>& componentIds);
         
-        template<typename... ComponentTypes>
-        void ForComponents(std::function<void(ComponentTypes&...)> callback) {
+        template<typename... ComponentTypes, typename Callback>
+void ForComponents(Callback&& callback) {
+
             std::vector<size_t> componentIds = { kComponent<ComponentTypes>::TypeId... };
             auto matchingArchetypes = Query(componentIds);
-    
+
             for (auto* archetype : matchingArchetypes) {
                 for (auto* chunk : archetype->chunks) {
                     if (chunk->count == 0) continue;
-            
+
                     std::tuple<ComponentTypes*...> componentArrays = {
                         static_cast<ComponentTypes*>(chunk->GetComponentArray(kComponent<ComponentTypes>::TypeId))...
                     };
-            
+
                     for (size_t i = 0; i < chunk->count; i++) {
-                        callback(std::get<ComponentTypes*>(componentArrays)[i]...);
+                        callback((std::get<ComponentTypes*>(componentArrays)[i])...);
                     }
                 }
             }
