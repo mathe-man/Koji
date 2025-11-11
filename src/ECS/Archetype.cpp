@@ -5,11 +5,13 @@
 using namespace Koji::ECS;
 
 bool Archetype::Matches(const std::vector<size_t>& requiredIds) const {
-    for (auto requiredId : requiredIds) {
-        if (std::find(componentIds.begin(), componentIds.end(), requiredId) == componentIds.end())
-            return false;  // A component isn't present
-    }
-    return true;  // Every required component are present 
+    uint number_matches = 0;
+    for (size_t req_id : requiredIds)
+        for (size_t arch_id : componentIds)
+            if (number_matches++ == requiredIds.size())
+                return true;
+    
+    return false; 
 }
 
 Chunk* Archetype::GetAvailableChunk() {
