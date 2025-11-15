@@ -5,12 +5,10 @@
 
 using namespace Koji::ECS;
 
-void CreatePyramid(World& world);
 
 int main(){
 
     Koji::Scene myScene("My Koji Scene");
-    auto* world = myScene.GetWorld();
     
     myScene.AddSystem<RenderSystem>();
     

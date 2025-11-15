@@ -4,7 +4,7 @@
 
 namespace Koji::ECS
 {
-    struct MetaData : public kComponent<MetaData> {
+    struct MetaData {
         std::string name;
         int layer{};
         bool active{};

@@ -12,7 +12,8 @@ A 3d game engine using an ECS
  - **Physics**
    - [ReactPhysics3D](https://github.com/DanielChappuis/reactphysics3d) ([website](https://www.reactphysics3d.com/download.html)): Rigid bodies, colliders, etc.
 g
-
+ - **ECS**
+   - [EnTT](https://github.com/skypjack/entt): Manage entities and components
  - **Assets**
    - [Assimp](https://github.com/assimp/assimp): To load 3d models, textures...
 

@@ -344,11 +344,10 @@ bool RenderSystem::Update() {
     glUniform3f(glGetUniformLocation(shaderProgram, "lightColor"), 1.0f, 1.0f, 1.0f);
     glUniform3f(glGetUniformLocation(shaderProgram, "viewPos"), cameraPosition.x, cameraPosition.y, cameraPosition.z);
     
-    Koji::Application::scene->GetWorld()->ForComponents<Koji::ECS::Transform, Koji::ECS::Model>([this](Koji::ECS::Transform& transform, Koji::ECS::Model& model)
-        {
-            RenderModel(transform, model);   
-        }
-    );
+    Koji::Application::scene->world->view<Koji::ECS::Transform, Koji::ECS::Model>().each([this](Koji::ECS::Transform& transform, Koji::ECS::Model& model)
+    {
+       RenderModel(transform, model); 
+    });
     
     // Swap buffers and poll events
     glfwSwapBuffers(window);

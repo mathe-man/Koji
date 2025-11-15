@@ -3,7 +3,6 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-#include "Koji/ECS/Component.h"
 
 namespace Koji::ECS
 {
@@ -44,7 +43,7 @@ namespace Koji::ECS
     };
 
     // Composant Model complet
-    struct Model : kComponent<Model> {
+    struct Model {
         std::vector<Mesh> meshes {};
         std::string filepath; // Chemin vers le fichier source (.glb, etc.)
         bool visible = true;

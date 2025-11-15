@@ -15,6 +15,7 @@ set(GLFW_BUILD_DOCS OFF)
 add_subdirectory(libs/glfw)
 add_subdirectory(libs/glm)
 add_subdirectory(libs/glad)
+add_subdirectory(libs/entt)
 
 # Set assimp parameters
 set(ASSIMP_BUILD_TESTS OFF)
@@ -50,11 +51,13 @@ target_include_directories(KojiEngine PUBLIC
         libs/glfw/include
         libs/glm
         libs/glad/include
+        libs/entt/src
         libs/reactphysics3d/include
         libs/assimp/include
 )
 target_link_libraries(KojiEngine PRIVATE 
         reactphysics3d 
+        EnTT
         assimp
         glfw glm glad
 )

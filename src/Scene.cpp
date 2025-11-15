@@ -29,5 +29,7 @@ bool Scene::Unload() {
     for (auto& system : systems)
         if (!system->Close())
             return false;
+
+    free(world);
     return true;
 }

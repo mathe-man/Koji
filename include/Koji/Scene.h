@@ -1,27 +1,29 @@
 #pragma once
+#include <algorithm>
 #include <string>
 #include <vector>
 
 #include "ECS/System.h"
-#include "ECS/World.h"
+#include "entt/entt.hpp"
 
 namespace Koji
 {
     class Scene
     {
     private:
-        std::unique_ptr<ECS::World> world;
         std::vector<std::unique_ptr<ECS::System>> systems;
         bool isRunning = false;
         std::string name;
         
     public:
-        Scene(const std::string& sceneName)
-            : name(sceneName), world(std::make_unique<ECS::World>()) {
+        entt::registry* world = new entt::registry();
+
+        
+        explicit Scene(const std::string& sceneName)
+            : name(sceneName) {
         }
         ~Scene() = default;
 
-        ECS::World* GetWorld() { return world.get(); }
         
         // Systems management
         template<typename T, typename... Args>
