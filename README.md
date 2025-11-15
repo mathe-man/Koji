@@ -1,5 +1,6 @@
-# Koji
+![Logo](logo.png)
 A 3d game engine using an ECS
+
 
 
 # Tech Stack (Overview)
@@ -21,3 +22,4 @@ g
    - *Scripting*: Lua (using sol2)
    - *Audio*: OpenAL or other
    - *Editor*: And project/scene editor using Qt
+
