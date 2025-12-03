@@ -1,16 +1,18 @@
 #include <stdexcept>
 #include <Koji/Scene.h>
 
+#include "Koji/Application.h"
+
 using namespace Koji;
 
 
 
-bool Scene::Load() {
+bool Scene::Load()
+{
     isRunning = true;
     
-    for (auto& system : systems)
-        if (!system->Init()) 
-            return false;
+    // Systems are initialed when added to the scene using AddSystem<T>
+    
     return true;
 }
 
@@ -27,7 +29,7 @@ bool Scene::Unload() {
     isRunning = false;
     
     for (auto& system : systems)
-        if (!system->Close())
+        if (system->Close())
             return false;
 
     free(world);

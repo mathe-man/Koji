@@ -1,10 +1,13 @@
 #pragma once
+#include "Time.h"
 #include "entt/entity/registry.hpp"
+#include "Koji/Application.h"
+#include "Koji/Scene.h"
 #include "reactphysics3d/reactphysics3d.h"
 
 namespace Koji::ECS {
     
-    class PhysicsSystem {
+    class PhysicsSystem : public System {
     public:
         reactphysics3d::PhysicsCommon physicsCommon;
         reactphysics3d::PhysicsWorld* world;
@@ -14,10 +17,12 @@ namespace Koji::ECS {
             world = physicsCommon.createPhysicsWorld(settings);
         }
 
-        void Update(float dt, entt::registry& ecs) {
-            SyncTransformsToPhysics(ecs);
-            world->update(dt);
-            SyncTransformsFromPhysics(ecs);
+        bool Update() override {
+            SyncTransformsToPhysics(*Application::scene->world);
+            world->update(std::max(Application::scene->GetSystem<TimeSystem>()->GetDeltaTime(), 0.000001f));
+            SyncTransformsFromPhysics(*Application::scene->world);
+
+            return true;
         }
 
     private:

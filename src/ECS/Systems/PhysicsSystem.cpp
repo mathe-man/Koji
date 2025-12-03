@@ -1,8 +1,9 @@
 #include <Koji/ECS/Systems/PhysicsSystem.h>
-#include <Koji/ECS/>
 
 #include "Koji/ECS/Components/PhysicsBody.h"
 #include "Koji/ECS/Components/Transform.h"
+
+#include <iostream>
 
 using namespace Koji::ECS;
 
@@ -30,7 +31,7 @@ void PhysicsSystem::SyncTransformsToPhysics(entt::registry& ecs) {
 void PhysicsSystem::SyncTransformsFromPhysics(entt::registry& ecs) {
     auto view = ecs.view<PhysicsBody, Transform>();
     
-    view.each<PhysicsBody, Transform>(
+    view.each(
         [&](PhysicsBody& pb, Transform& tr) {
 
             if (!pb.body) return;
@@ -40,6 +41,7 @@ void PhysicsSystem::SyncTransformsFromPhysics(entt::registry& ecs) {
             reactphysics3d::Quaternion rot = t.getOrientation();
 
             tr.position = glm::vec3(pos.x, pos.y, pos.z);
+            std::cout << "x:" << tr.position.x << " y:" << tr.position.y << " z:" << tr.position. z << std::endl;
             tr.rotation = glm::quat(rot.w, rot.x, rot.y, rot.z);
         }
     );

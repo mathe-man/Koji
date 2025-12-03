@@ -3,11 +3,20 @@
 #include <string>
 #include <vector>
 
+#include "EventBus.h"
 #include "ECS/System.h"
 #include "entt/entt.hpp"
 
 namespace Koji
 {
+    template<typename T>
+    struct SystemInitiedEvent
+    { T& system; };
+
+    template<typename T>
+    struct SystemClosedEvent
+    { T& system; };
+    
     class Scene
     {
     private:
@@ -17,6 +26,7 @@ namespace Koji
         
     public:
         entt::registry* world = new entt::registry();
+        EventBus* events = new EventBus();
 
         
         explicit Scene(const std::string& sceneName)
@@ -32,6 +42,13 @@ namespace Koji
     
             auto system = std::make_unique<T>(std::forward<Args>(args)...);
             T* ptr = system.get();
+
+            // Init system
+            if (static_cast<ECS::System*>(ptr)->Init())
+                events->emit(SystemInitiedEvent<T>{*system.get()});
+            else
+                return nullptr;
+            
             systems.push_back(std::move(system));
             return ptr;
         }
@@ -56,6 +73,7 @@ namespace Koji
             if (it != systems.end()) {
                 // Call Close() to clean
                 (*it)->Close();
+                events->emit(SystemClosedEvent<T>{*it});
         
                 systems.erase(it);
         
