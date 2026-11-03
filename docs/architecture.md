@@ -207,7 +207,7 @@ class System {
   +Close(ctx SystemContext) bool
 }
 class SystemDesc {
-  +requires List~TypeId~
+  +requiredSystems List~TypeId~
   +reads List~ComponentId~
   +writes List~ComponentId~
 }

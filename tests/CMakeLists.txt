@@ -1,4 +1,6 @@
-﻿add_executable(KojiTests main.cpp version_test.cpp)
+﻿file(GLOB_RECURSE KOJI_TEST_SOURCES CONFIGURE_DEPENDS *.cpp)
+
+add_executable(KojiTests ${KOJI_TEST_SOURCES})
 
 target_include_directories(KojiTests PRIVATE ${PROJECT_SOURCE_DIR}/libs/doctest)
 
