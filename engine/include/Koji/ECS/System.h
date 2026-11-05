@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <string>
 #include <typeindex>
 #include <typeinfo>
 #include <vector>
@@ -37,7 +38,9 @@ namespace Koji::ECS
         System(const System&) = delete;
         System& operator=(const System&) = delete;
 
-        virtual SystemDesc Describe() const { return {}; }
+        [[nodiscard]] virtual SystemDesc Describe() const { return {}; }
+        [[nodiscard]] std::string Name() const;
+
         virtual bool Init(SystemContext&)   { return true; }
         virtual void Update(SystemContext&) {}
         virtual bool Close(SystemContext&)  { return true; }
