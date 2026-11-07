@@ -1,0 +1,24 @@
+﻿
+# Libs
+external/** linguist-vendored
+
+# Documentation
+docs/** linguist-documentation
+
+
+
+# Default
+* text=auto
+
+# C++ files
+*.cpp   text eol=lf
+*.h     text eol=lf
+*.hpp   text eol=lf
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+
+*.exe binary
