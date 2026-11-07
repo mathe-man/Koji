@@ -6,7 +6,6 @@ namespace Koji::ECS
     // Every system receive one on each call
     struct SystemContext
     {
-        float dt = 0.0f;
         SystemRegistry* systems = nullptr;
 
 

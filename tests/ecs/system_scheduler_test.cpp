@@ -59,9 +59,7 @@ namespace
     struct Probe : System
     {
         bool Init(SystemContext& ctx) override   { sawA = ctx.GetSystem<A>() != nullptr; return true; }
-        void Update(SystemContext& ctx) override { seenDt = ctx.dt; }
         bool sawA = false;
-        float seenDt = 0.0f;
     };
 
     bool Contains(const std::string& text, const char* part)
@@ -304,10 +302,7 @@ TEST_CASE("Context get Dt and give access to the systems")
     REQUIRE(sched.Build(reg));
 
     SystemContext ctx;      // ctx.systems is wired by the scheduler
-    ctx.dt = 0.5f;
     REQUIRE(sched.Init(ctx));
-    sched.Run(ctx);
 
     CHECK(probe->sawA);
-    CHECK(probe->seenDt == 0.5f);
 }
