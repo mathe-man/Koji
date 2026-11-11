@@ -121,65 +121,142 @@ note for AssetMeta "UUID 64 bits + relative path"
 ## View 3 - KojiECS: Entities and Components storage
 ```mermaid
 classDiagram
+    direction TB
+    class ComponentRegistry {
+        +Register(name string, size uint, align uint) ComponentId
+        +RegisterType(name string) ComponentId
+        +IdOf() ComponentId
+        +Find(name string) ComponentId
+        +Info(id ComponentId) ComponentInfo
+        +LastError() string
+    }
+    class ComponentInfo {
+        +id ComponentId
+        +name string
+        +size uint
+        +align uint
+        +IsTag() bool
+    }
+    class EntityManager {
+        <<codé>>
+        +Create() EntityId
+        +Destroy(e EntityId) bool
+        +IsAlive(e EntityId) bool
+        +Locate(e EntityId) optional~EntityRecord~
+        +SetLocation(e EntityId, rec EntityRecord) bool
+        +AliveCount() size
+    }
+    class EntityRecord {
+        +archetype ArchetypeId
+        +chunk uint
+        +row uint
+    }
+    class ChunkLayout {
+        <<codé>>
+        +Create(chunkBytes size, comps ComponentInfoList) optional~ChunkLayout~
+        +Capacity() uint
+        +Signature() ComponentMask
+        +Has(id ComponentId) bool
+        +FindColumn(id ComponentId) ChunkColumn
+    }
+    class ChunkColumn {
+        +id ComponentId
+        +size uint
+        +align uint
+        +offset size
+    }
+    class Chunk {
+        <<codé>>
+        +Chunk(layout ChunkLayout)
+        +Push(e EntityId) uint
+        +SwapRemove(row uint) EntityId
+        +Entities() span~EntityId~
+        +Components(id ComponentId) span~T~
+        +Column(id ComponentId) VoidPtr
+        +ComponentAt(id ComponentId, row uint) VoidPtr
+        +Clone() Chunk
+        +Count() uint
+    }
+    ComponentRegistry o-- ComponentInfo : one per component
+    EntityManager o-- EntityRecord : one per entity
+    ChunkLayout o-- ChunkColumn : one per component
+    ChunkLayout ..> ComponentInfo : Create(chunkBytes, comps) read size and align
+    Chunk ..> ChunkLayout : read offsets and capacity
+    note for EntityManager "EntityId = index + generation : old destroyed id is not longer valid"
+    note for EntityRecord "Where the entity live : archetype, chunk, row. Updated by the World when moved"
+    note for ChunkLayout "Calculated one time per archetype."
+    note for Chunk "SwapRemove return the moved entity : Caller have to update his EntityRecord."
+```
+
+## View 4 - KojiECS: World, archetypes and requests
+```mermaid
+classDiagram
 direction TB
 class World {
   +CreateEntity() EntityId
-  +DestroyEntity(e EntityId) void
-  +Add(e EntityId, comp T) void
-  +Remove(e EntityId) void
-  +Get(e EntityId) T
-  +Query(sig Signature) QueryResult
+  +DestroyEntity(e EntityId) bool
+  +IsAlive(e EntityId) bool
+  +Add(e EntityId, value T) bool
+  +Remove(e EntityId) bool
+  +Has(e EntityId) bool
+  +Get(e EntityId) TPtr
+  +AddRaw(e EntityId, id ComponentId, data VoidPtr) bool
+  +ForEachChunk(q Query, fn ChunkFn) void
+  +Registry() ComponentRegistry
   +Clone() World
 }
-class EntityManager {
-  +Create() EntityId
-  +Destroy(e EntityId) bool
-  +IsAlive(e EntityId) bool
-  +Locate(e EntityId) EntityRecord
-}
-class EntityRecord {
-  +archetype ArchetypeId
-  +chunk int
-  +row int
-}
-class ComponentRegistry {
-  +Register(name string, size int, align int) ComponentId
-  +Info(id ComponentId) ComponentInfo
-  +IdOf() ComponentId
-}
 class Archetype {
-  +signature ComponentMask
-  +Has(id ComponentId) bool
-  +AllocateRow(e EntityId) RowRef
-  +MoveRow(from RowRef, to Archetype) RowRef
+  +Remove(rec EntityRecord) EntityId
+  +MoveRow(from EntityRecord, to Archetype) MoveResult
+  +Signature() ComponentMask
+  +GetChunk(index uint) Chunk
+  +ChunkCount() uint
+  +EntityCount() uint
 }
-class Chunk {
-  +count int
-  +capacity int
+class MoveResult {
+  +newRecord EntityRecord
+  +movedInSource EntityId
+}
+class Query {
+  +Require(id ComponentId) Query
+  +Exclude(id ComponentId) Query
+  +Matches(sig ComponentMask) bool
+}
+class QueryCache {
+  +Match(q Query, archetypes ArchetypeList) ArchetypeIdList
+}
+class ChunkView {
+  +Count() uint
+  +Entities() span~EntityId~
+  +Components(id ComponentId) span~T~
   +Column(id ComponentId) VoidPtr
-  +Push(e EntityId) int
-  +SwapRemove(row int) EntityId
 }
-class QueryResult {
-  +chunks List~ChunkView~
-}
+class EntityManager
+class ComponentRegistry
+class ChunkLayout
+class Chunk
 World *-- EntityManager : own
 World *-- ComponentRegistry : own
-World *-- Archetype : one for each combination of component
-Archetype *-- Chunk : own
-EntityManager *-- EntityRecord : One per entity
-World ..> EntityManager : Create(), Locate(e)
-World ..> Archetype : Add(e, comp) call MoveRow(from, to)
-Archetype ..> ComponentRegistry : Info(id) sizes and alignments
-World ..> QueryResult : Query(sig) create or read cache
-QueryResult o-- Chunk : chunks of compatible archetypes
-note for World "Only way to access the ECS"
-note for ComponentRegistry "C++ and C# components go through the same Register() at startup. Only allowing trivially copyable structs"
-note for Chunk "Contiguous columns for each component, fixed size (ex. 16 Ko). C# can receive it with only one call"
-note for QueryResult "Result is loaded in cache and recalculated only when a new archetype is created"
+World *-- Archetype : one per components combination
+World *-- QueryCache : own
+Archetype *-- ChunkLayout : own the layout
+Archetype *-- Chunk : own the list
+World ..> EntityManager : Create(), Locate(e), SetLocation(e, rec)
+World ..> ComponentRegistry : RegisterType(), Info(id)
+World ..> Archetype : Allocate(e), Remove(rec), MoveRow(from, to)
+World ..> QueryCache : Match(q, archetypes)
+World ..> ChunkView : ForEachChunk(q, fn) give a ChunkView for each non-empty chunk
+Archetype ..> Chunk : Push(e), SwapRemove(row)
+Archetype ..> MoveResult : return
+QueryCache ..> Query : Matches(sig)
+QueryCache ..> Archetype : Signature()
+note for World "Only way to access the ECS."
+note for MoveResult "movedInSource = entity which filled the hole : son EntityRecord doit être mis à jour"
+note for Query "Created by the scheduler from reads and writes declared in the SystemDesc"
+note for ChunkView "Systems don't get a Chunk : no Push() or SwapRemove() during the update cycle. Those type of action during the cycle will use a CommandBuffer later"
 ```
 
-## View 4 - KojiECS: Systems
+## View 5 - KojiECS: Systems
 ```mermaid
 classDiagram
 direction TB
