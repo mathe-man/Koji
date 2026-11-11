@@ -7,8 +7,8 @@ docs/** linguist-documentation
 
 
 
-# Default
-* text=auto
+# Default: LF everywhere
+* text=lf eol=lf
 
 # C++ files
 *.cpp   text eol=lf
